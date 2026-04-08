@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>THE LODOWN</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Source+Serif+4:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{--bg-dark:#2C2416;--bg-medium:#3D3225;--bg-card:#E8E0D0;--bg-light:#F5F0E8;--text-dark:#2C2416;--text-light:#F5F0E8;--text-muted:#8B7D6B;--accent:#8B7355;--accent-hover:#A08563;--accent-gold:#C9A96E;--tag-bg:#A09880;--border:#C4B99A;--heart:#8B4049}
+    body{width:380px;min-height:500px;max-height:600px;overflow-y:auto;background:var(--bg-light);font-family:'Source Serif 4',Georgia,serif;color:var(--text-dark)}
+    .header{background:var(--bg-dark);padding:16px 20px;display:flex;align-items:center;gap:14px}
+    .header-icon{width:48px;height:48px;flex-shrink:0}
+    .header-title{font-family:'Oswald',sans-serif;font-weight:700;font-size:28px;letter-spacing:3px;text-transform:uppercase;color:var(--text-light);line-height:1}
+    .context-bar{background:var(--bg-light);border-bottom:1px solid var(--border);padding:10px 20px;font-family:'Oswald',sans-serif;font-weight:500;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);text-align:center}
+    .context-bar .owner-name{color:var(--heart);font-weight:600}
+    .location-bar{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--border)}
+    .location-bar h2{font-family:'Oswald',sans-serif;font-weight:700;font-size:16px;letter-spacing:1px;text-transform:uppercase}
+    .location-tag{font-family:'Oswald',sans-serif;font-weight:600;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;background:var(--bg-medium);color:var(--text-light);padding:5px 14px;border:none}
+    .articles{padding:10px 16px;display:flex;flex-direction:column;gap:10px}
+    .card{background:var(--bg-card);border:1px solid var(--border);padding:14px 16px;position:relative}
+    .card-source-tag{position:absolute;top:10px;right:10px;font-family:'Oswald',sans-serif;font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;background:var(--tag-bg);color:var(--text-light);padding:3px 8px}
+    .card-source-tag.nonprofit{background:var(--accent)}
+    .card-headline{font-family:'Oswald',sans-serif;font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:.5px;line-height:1.3;margin-bottom:3px;padding-right:70px}
+    .card-author{font-family:'Oswald',sans-serif;font-weight:400;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px}
+    .card-snippet{font-size:12px;line-height:1.5;color:#5C5344;margin-bottom:10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .card-actions{display:flex;align-items:center;gap:6px}
+    .btn-read{flex:1;font-family:'Oswald',sans-serif;font-weight:700;font-size:11px;letter-spacing:2px;text-transform:uppercase;background:var(--bg-dark);color:var(--text-light);border:none;padding:9px 14px;cursor:pointer;display:flex;align-items:center;gap:6px;text-decoration:none}
+    .btn-read:hover{background:var(--bg-medium)}
+    .btn-icon{width:34px;height:34px;background:var(--bg-medium);border:none;color:var(--text-light);display:flex;align-items:center;justify-content:center;cursor:pointer}
+    .btn-icon:hover{background:var(--accent)}
+    .footer{background:var(--bg-dark);padding:14px 20px;display:flex;align-items:center;justify-content:space-between}
+    .footer-text{font-family:'Oswald',sans-serif;font-weight:600;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--text-light)}
+    .footer-btn{width:32px;height:32px;border-radius:50%;background:var(--accent);border:none;color:var(--text-light);display:flex;align-items:center;justify-content:center;cursor:pointer}
+    .footer-btn:hover{background:var(--accent-hover)}
+    #setupView{display:none;padding:20px}
+    #setupView h2{font-family:'Oswald',sans-serif;font-weight:700;font-size:18px;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px}
+    #setupView label{font-family:'Oswald',sans-serif;font-weight:500;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:4px}
+    #setupView input{width:100%;font-family:'Source Serif 4',serif;font-size:14px;padding:8px 12px;border:1px solid var(--border);background:#fff;margin-bottom:12px}
+    .btn-save{width:100%;font-family:'Oswald',sans-serif;font-weight:700;font-size:13px;letter-spacing:2px;text-transform:uppercase;background:var(--bg-dark);color:var(--text-light);border:none;padding:11px;cursor:pointer}
+    .btn-save:hover{background:var(--bg-medium)}
+    .location-chip{display:inline-flex;align-items:center;gap:6px;background:var(--bg-medium);color:var(--text-light);font-family:'Oswald',sans-serif;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;margin:0 4px 4px 0}
+    .location-chip button{background:none;border:none;color:var(--accent-gold);cursor:pointer;font-size:14px;line-height:1}
+    .radio-group{display:flex;gap:10px;margin-bottom:14px}
+    .radio-option{flex:1}
+    .radio-option input{display:none}
+    .radio-label{display:block;text-align:center;padding:10px 8px;font-family:'Oswald',sans-serif;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;border:2px solid var(--border);cursor:pointer;color:var(--text-muted);margin-bottom:0;width:auto}
+    .radio-option input:checked+.radio-label{border-color:var(--bg-dark);background:var(--bg-dark);color:var(--text-light)}
+    .loading{text-align:center;padding:40px 20px;font-family:'Oswald',sans-serif;font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted)}
+    .loading::after{content:'';display:block;width:24px;height:24px;margin:14px auto 0;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .empty-state{text-align:center;padding:30px 20px;color:var(--text-muted);font-size:14px;line-height:1.6;font-family:'Source Serif 4',Georgia,serif}
+  </style>
+</head>
+<body>
+  <div class="header">
+    <svg class="header-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="4" y="10" width="40" height="30" rx="2" fill="#D4C5A9" stroke="#F5F0E8" stroke-width="1.5"/>
+      <rect x="8" y="14" width="16" height="10" fill="#8B7355"/>
+      <line x1="8" y1="28" x2="36" y2="28" stroke="#8B7355" stroke-width="1.5"/>
+      <line x1="8" y1="32" x2="36" y2="32" stroke="#8B7355" stroke-width="1.5"/>
+      <line x1="8" y1="36" x2="24" y2="36" stroke="#8B7355" stroke-width="1.5"/>
+      <line x1="28" y1="14" x2="36" y2="14" stroke="#8B7355" stroke-width="1.5"/>
+      <line x1="28" y1="18" x2="36" y2="18" stroke="#8B7355" stroke-width="1.5"/>
+      <line x1="28" y1="22" x2="36" y2="22" stroke="#8B7355" stroke-width="1.5"/>
+      <rect x="2" y="6" width="12" height="10" rx="1" fill="#C9A96E" stroke="#F5F0E8" stroke-width="1"/>
+      <text x="8" y="13" text-anchor="middle" fill="#2C2416" font-family="Oswald" font-size="6" font-weight="700">NEWS</text>
+    </svg>
+    <div class="header-title">The Lodown</div>
+  </div>
+  <div class="context-bar" id="contextBar" style="display:none">YOU'RE READING ON <span class="owner-name" id="ownerName"></span></div>
+  <div class="location-bar">
+    <h2>Get the Local Story</h2>
+    <div class="location-tag" id="locationDisplay">IN PITTSBURGH, PA</div>
+  </div>
+  <div id="mainView">
+    <div class="loading" id="loadingState">Searching local sources</div>
+    <div class="articles" id="articlesContainer" style="display:none"></div>
+    <div class="empty-state" id="emptyState" style="display:none"></div>
+  </div>
+  <div id="setupView">
+    <h2>Your Settings</h2>
+    <label>Your Cities</label>
+    <div id="locationList"></div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <input type="text" id="cityInput" placeholder="City" style="flex:2">
+      <input type="text" id="stateInput" placeholder="ST" maxlength="2" style="flex:0.6;text-transform:uppercase">
+      <button class="btn-save" id="addLocationBtn" style="flex:0.8;padding:8px">+ ADD</button>
+    </div>
+    <label>Extension Behavior</label>
+    <div class="radio-group">
+      <div class="radio-option">
+        <input type="radio" name="invasiveness" id="modeAuto" value="auto">
+        <label class="radio-label" for="modeAuto">Auto Pop-up</label>
+      </div>
+      <div class="radio-option">
+        <input type="radio" name="invasiveness" id="modeManual" value="manual" checked>
+        <label class="radio-label" for="modeManual">Manual Only</label>
+      </div>
+    </div>
+    <button class="btn-save" id="saveSettingsBtn">Save Settings</button>
+  </div>
+  <div class="footer">
+    <span class="footer-text">Open Your Library</span>
+    <button class="footer-btn" id="settingsBtn" title="Settings">
+      <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path d="M10 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm0 5.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm0 5.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/></svg>
+    </button>
+  </div>
+  <script src="scripts/popup.js"></script>
+</body>
+</html>
