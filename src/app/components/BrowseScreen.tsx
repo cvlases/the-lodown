@@ -26,14 +26,14 @@ const MAP_STYLE = [
 const PITTSBURGH_CENTER = { lat: 40.4406, lng: -79.9959 };
 const MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY as string;
 
-// Coordinates per source slug — derived from physical addresses
+// Coordinates geocoded from physical addresses via Nominatim
 const SOURCE_COORDS: Record<string, { lat: number; lng: number }> = {
-  'publicsource':               { lat: 40.4432, lng: -79.9713 }, // 1936 Fifth Ave (Hill District)
-  'next-pittsburgh':            { lat: 40.4399, lng: -79.9979 }, // 223 Fourth Ave (Downtown)
-  'triblive':                   { lat: 40.6015, lng: -79.7594 }, // 210 Wood St, Tarentum
-  'wesa':                       { lat: 40.4267, lng: -79.9793 }, // 67 Bedford Square (South Side)
+  'publicsource':               { lat: 40.4379, lng: -79.9779 }, // 1936 Fifth Ave
+  'next-pittsburgh':            { lat: 40.4399, lng: -80.0022 }, // 223 Fourth Ave
+  'triblive':                   { lat: 40.6005, lng: -79.7542 }, // 210 Wood St, Tarentum
+  'wesa':                       { lat: 40.4299, lng: -79.9867 }, // 67 Bedford Square
   'pittsburgh-union-progress':  { lat: 40.4406, lng: -79.9959 }, // no address — city center
-  'pittsburgh-post-gazette':    { lat: 40.4477, lng: -80.0106 }, // 358 North Shore Dr
+  'pittsburgh-post-gazette':    { lat: 40.4458, lng: -80.0121 }, // 358 North Shore Dr
 };
 
 

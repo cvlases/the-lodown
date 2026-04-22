@@ -11,8 +11,9 @@ import imgFollowing from "../../imports/icon-following.svg";
 import imgBooks     from "../../imports/Frame29/63c86cc538ebcce955adc8fe5bc6a1427bf54d93.png";
 import imgOpenBook  from "../../imports/Frame29/e5fc9fba73bdd6faf0af3d9f11427e9251768390.png";
 import imgBookmark  from "../../imports/Frame29/b9fbbce8452ecbc8c86b15c9f2b3b06ef7aa1941.png";
+import imgAbout     from "../../imports/about.png";
 
-type Screen = 'browse' | 'saved' | 'following' | 'extension';
+type Screen = 'browse' | 'saved' | 'following' | 'extension' | 'about';
 
 interface MastheadProps {
   activeScreen: Screen;
@@ -216,10 +217,11 @@ export default function Masthead({ activeScreen, onNavClick, isLoginOpen, setIsL
         <div className="px-8 lg:px-16 py-4">
           <div className="flex items-end justify-center gap-6 lg:gap-12">
 
-            <NavButton label="Browse"    icon={imgBooks}    active={activeScreen === 'browse'}    onClick={() => handleNavClick('browse')} />
-            <NavButton label="Saved"     icon={imgBookmark} active={activeScreen === 'saved'}     onClick={() => handleNavClick('saved')} />
-            <NavButton label="Following" icon={imgFollowing} active={activeScreen === 'following'} onClick={() => handleNavClick('following')} />
-            <NavButton label="Extension" icon={imgOpenBook} active={activeScreen === 'extension'} onClick={() => handleNavClick('extension')} />
+            <NavButton label="Browse"    icon={imgBooks}     active={activeScreen === 'browse'}    onClick={() => handleNavClick('browse')} />
+            <NavButton label="Saved"     icon={imgBookmark}  active={activeScreen === 'saved'}     onClick={() => handleNavClick('saved')} />
+            <NavButton label="Following" icon={imgFollowing}  active={activeScreen === 'following'} onClick={() => handleNavClick('following')} />
+            <NavButton label="Extension" icon={imgOpenBook}  active={activeScreen === 'extension'} onClick={() => handleNavClick('extension')} />
+            <NavButton label="About"     icon={imgAbout}     active={activeScreen === 'about'}     onClick={() => handleNavClick('about')} />
 
           </div>
         </div>
@@ -232,10 +234,10 @@ export default function Masthead({ activeScreen, onNavClick, isLoginOpen, setIsL
 
 // ── NavButton ─────────────────────────────────────────────────────────────────
 
-function NavButton({ label, icon, active, onClick }: { label: string; icon: string; active: boolean; onClick: () => void }) {
+function NavButton({ label, icon, active, onClick, iconSize }: { label: string; icon: string; active: boolean; onClick: () => void; iconSize?: string }) {
   return (
     <button onClick={onClick} className="flex flex-col items-center gap-1 relative">
-      <img src={icon} alt="" className="size-[30px] lg:size-[40px] object-contain" />
+      <img src={icon} alt="" className={`${iconSize ?? 'size-[30px] lg:size-[40px]'} object-contain`} />
       <span className="font-['Didot:Regular',sans-serif] text-[16px] lg:text-[24px] text-[#3e3232] tracking-[-1px] uppercase">
         {label}
       </span>

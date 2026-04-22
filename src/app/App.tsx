@@ -5,10 +5,11 @@ import BrowseScreen       from './components/BrowseScreen';
 import SavedScreen        from './components/SavedScreen';
 import FollowingScreen    from './components/FollowingScreen';
 import ExtensionScreen    from './components/ExtensionScreen';
+import AboutScreen        from './components/AboutScreen';
 import SubmitSourceScreen from './components/SubmitSourceScreen';
 import Masthead           from './components/Masthead';
 
-type Screen = 'browse' | 'saved' | 'following' | 'extension' | 'submit';
+type Screen = 'browse' | 'saved' | 'following' | 'extension' | 'about' | 'submit';
 
 export default function App() {
   const [activeScreen, setActiveScreen] = useState<Screen>('browse');
@@ -66,6 +67,7 @@ export default function App() {
         {activeScreen === 'saved'     && <SavedScreen user={user} />}
         {activeScreen === 'following' && <FollowingScreen user={user} />}
         {activeScreen === 'extension' && <ExtensionScreen />}
+        {activeScreen === 'about'     && <AboutScreen />}
       </div>
     </div>
   );
