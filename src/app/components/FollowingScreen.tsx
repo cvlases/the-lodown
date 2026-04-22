@@ -56,9 +56,49 @@ export default function FollowingScreen({ user }: { user: User | null }) {
     topics:  [],
   });
 
+  // Extension-sourced suggestions per category (ranked first in dropdown)
+  const [extensionOptions, setExtensionOptions] = useState<Record<Category, string[]>>({
+    authors: [],
+    sources: [],
+    places:  [],
+    topics:  [],
+  });
+
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
   const [confirmingRemove, setConfirmingRemove] = useState<{ category: Category; tag: string } | null>(null);
   const [addingTo, setAddingTo] = useState<Category | null>(null);
+
+  // Fetch extension-sourced suggestions from localStorage
+  useEffect(() => {
+    const fetchExtensionTopics = () => {
+      try {
+        const stored = localStorage.getItem('thelodown_extension_topics');
+        if (!stored) return;
+
+        const data = JSON.parse(stored);
+        setExtensionOptions({
+          authors: Array.isArray(data.authors) ? data.authors : [],
+          sources: Array.isArray(data.sources) ? data.sources : [],
+          places:  Array.isArray(data.places) ? data.places : [],
+          topics:  Array.isArray(data.topics) ? data.topics : [],
+        });
+      } catch (err) {
+        console.error('Failed to parse extension topics from localStorage:', err);
+      }
+    };
+
+    // Fetch on mount and listen for storage changes
+    fetchExtensionTopics();
+    window.addEventListener('storage', fetchExtensionTopics);
+    
+    // Also check periodically in case another tab updates it
+    const interval = setInterval(fetchExtensionTopics, 1000);
+
+    return () => {
+      window.removeEventListener('storage', fetchExtensionTopics);
+      clearInterval(interval);
+    };
+  }, []);
 
   // Load following tags from DB
   useEffect(() => {
@@ -335,6 +375,7 @@ export default function FollowingScreen({ user }: { user: User | null }) {
                     placeholder={`Search ${label.toLowerCase()}...`}
                     onSelect={val => addTag(key, val)}
                     onClose={() => setAddingTo(null)}
+                    extensionSourcedOptions={extensionOptions[key]}
                   />
                 ) : (
                   <button
@@ -485,12 +526,13 @@ export default function FollowingScreen({ user }: { user: User | null }) {
 
 // ── SearchDropdown ────────────────────────────────────────────────────────────
 
-function SearchDropdown({ options, already, placeholder, onSelect, onClose }: {
+function SearchDropdown({ options, already, placeholder, onSelect, onClose, extensionSourcedOptions = [] }: {
   options: string[];
   already: string[];
   placeholder: string;
   onSelect: (val: string) => void;
   onClose: () => void;
+  extensionSourcedOptions?: string[];
 }) {
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -509,9 +551,20 @@ function SearchDropdown({ options, already, placeholder, onSelect, onClose }: {
     return () => document.removeEventListener('mousedown', handler);
   }, [onClose]);
 
-  const filtered = options
+  // Rank extension-sourced options first, then regular options
+  const allOptions = options.slice();
+  const extensionFirst = extensionSourcedOptions
     .filter(o => !already.includes(o))
-    .filter(o => !query || o.toLowerCase().includes(query.toLowerCase()))
+    .filter(o => !allOptions.includes(o) || true); // Include even if in regular options
+  
+  const filtered = [
+    ...extensionFirst
+      .filter(o => !query || o.toLowerCase().includes(query.toLowerCase())),
+    ...allOptions
+      .filter(o => !already.includes(o))
+      .filter(o => !extensionFirst.includes(o))
+      .filter(o => !query || o.toLowerCase().includes(query.toLowerCase()))
+  ]
     .slice(0, 8);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -538,15 +591,47 @@ function SearchDropdown({ options, already, placeholder, onSelect, onClose }: {
               {options.length === 0 ? 'No data loaded yet — sync RSS first' : 'No matches'}
             </p>
           ) : (
-            filtered.map(option => (
-              <button
-                key={option}
-                onMouseDown={e => { e.preventDefault(); onSelect(option); }}
-                className="w-full text-left px-4 py-2.5 font-['Didot:Regular',sans-serif] text-[14px] text-[#3e3232] hover:bg-[rgba(62,50,50,0.1)] border-b border-[#3e3232]/10 last:border-b-0 transition-colors"
-              >
-                {option}
-              </button>
-            ))
+            <>
+              {/* Extension-sourced section (show if present) */}
+              {extensionSourcedOptions.length > 0 && (
+                <>
+                  {extensionSourcedOptions
+                    .filter(o => !already.includes(o))
+                    .filter(o => !query || o.toLowerCase().includes(query.toLowerCase()))
+                    .slice(0, 8)
+                    .map((option, idx) => (
+                      <button
+                        key={`ext-${option}`}
+                        onMouseDown={e => { e.preventDefault(); onSelect(option); }}
+                        className="w-full text-left px-4 py-2.5 font-['Didot:Regular',sans-serif] text-[14px] text-[#3e3232] hover:bg-[rgba(62,50,50,0.15)] bg-[rgba(62,50,50,0.05)] border-b border-[#3e3232]/10 transition-colors group"
+                      >
+                        <span className="text-[12px] font-['Heading_Now_Trial:25_Medium',sans-serif] tracking-[1px] uppercase text-[#3e3232]/60">♦ </span>
+                        {option}
+                      </button>
+                    ))}
+                  {/* Divider between extension and regular options */}
+                  {extensionSourcedOptions.filter(o => !already.includes(o)).length > 0 && options.filter(o => !already.includes(o) && !extensionSourcedOptions.includes(o)).length > 0 && (
+                    <div className="h-[1px] bg-[#3e3232]/20" />
+                  )}
+                </>
+              )}
+              {/* Regular options */}
+              {options
+                .filter(o => !already.includes(o))
+                .filter(o => !extensionSourcedOptions.includes(o))
+                .filter(o => !query || o.toLowerCase().includes(query.toLowerCase()))
+                .slice(0, 8 - Math.min(8, extensionSourcedOptions.filter(o => !already.includes(o)).length))
+                .map(option => (
+                  <button
+                    key={option}
+                    onMouseDown={e => { e.preventDefault(); onSelect(option); }}
+                    className="w-full text-left px-4 py-2.5 font-['Didot:Regular',sans-serif] text-[14px] text-[#3e3232] hover:bg-[rgba(62,50,50,0.1)] border-b border-[#3e3232]/10 last:border-b-0 transition-colors"
+                  >
+                    {option}
+                  </button>
+                ))
+              }
+            </>
           )}
         </div>
       )}
