@@ -61,6 +61,17 @@ export default function SavedScreen({ user }: Props) {
   // Delete confirmation
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
+  const loadExtensionBookmarks = async (userId: string) => {
+    const { data } = await supabase
+      .from('extension_bookmarks')
+      .select('id, headline, source, author, url, saved_at')
+      .eq('user_id', userId)
+      .order('saved_at', { ascending: false })
+      .limit(100);
+
+    if (data) setExtBookmarks(data as ExtBookmark[]);
+  };
+
   // Load folders and extension bookmarks when user is available
   useEffect(() => {
     if (!user) return;
@@ -80,13 +91,24 @@ export default function SavedScreen({ user }: Props) {
         setLoading(false);
       });
 
-    supabase
-      .from('extension_bookmarks')
-      .select('id, headline, source, author, url, saved_at')
-      .eq('user_id', user.id)
-      .order('saved_at', { ascending: false })
-      .limit(100)
-      .then(({ data }) => { if (data) setExtBookmarks(data as ExtBookmark[]); });
+    loadExtensionBookmarks(user.id);
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const refreshBookmarks = () => {
+      if (document.visibilityState === 'hidden') return;
+      void loadExtensionBookmarks(user.id);
+    };
+
+    window.addEventListener('focus', refreshBookmarks);
+    document.addEventListener('visibilitychange', refreshBookmarks);
+
+    return () => {
+      window.removeEventListener('focus', refreshBookmarks);
+      document.removeEventListener('visibilitychange', refreshBookmarks);
+    };
   }, [user]);
 
   // Load articles when a folder is selected

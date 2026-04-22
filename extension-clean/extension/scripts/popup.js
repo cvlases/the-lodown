@@ -45,7 +45,13 @@ function tryTabsForAuth(tabs,idx,cb){
     func:function(projRef){
       try{
         var key="sb-"+projRef+"-auth-token";
-        var d=JSON.parse(localStorage.getItem(key));
+        var raw=localStorage.getItem(key);
+        if(!raw)return null;
+        var data=JSON.parse(raw);
+        var d=(data&&data.access_token)?data:
+          (data&&data.currentSession&&data.currentSession.access_token)?data.currentSession:
+          (data&&data.session&&data.session.access_token)?data.session:
+          (Array.isArray(data)?data.find(function(item){return item&&item.access_token;})||null:null);
         if(!d||!d.access_token)return null;
         var email=(d.user&&d.user.email)||null;
         if(!email){
