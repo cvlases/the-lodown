@@ -28,6 +28,19 @@ function sbAuthPost(table, body, token) {
   });
 }
 
+function sbAuthFetch(path, token) {
+  return fetch(SB_URL + "/rest/v1/" + path, {
+    headers: {
+      "apikey": SB_KEY,
+      "Authorization": "Bearer " + token,
+      "Accept": "application/json"
+    }
+  }).then(function(r) {
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  });
+}
+
 /* ===== DATA LOADING WITH CACHE ===== */
 
 function loadSources() {
@@ -294,6 +307,17 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
         author: msg.article.author||null, url: msg.article.link || msg.article.url || null
       }, d.authToken).then(function(r){ sendResponse({success:r.ok||r.status===409}); })
         .catch(function(e){ sendResponse({success:false,error:e.message}); });
+    }); return true;
+  }
+  if (msg.type === "GET_SAVED_BOOKMARK_URLS") {
+    chrome.storage.local.get(["authToken"]).then(function(d) {
+      if (!d.authToken) { sendResponse({ success: true, urls: [] }); return; }
+      sbAuthFetch("extension_bookmarks?select=url&order=saved_at.desc&limit=500", d.authToken)
+        .then(function(rows) {
+          var urls = (rows || []).map(function(row) { return row && row.url; }).filter(Boolean);
+          sendResponse({ success: true, urls: urls });
+        })
+        .catch(function(e) { sendResponse({ success: false, urls: [], error: e.message }); });
     }); return true;
   }
   if (msg.type === "LOGIN") {

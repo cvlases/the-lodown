@@ -2,10 +2,66 @@
 "use strict";
 function $(s){return document.querySelector(s);}
 var currentView="main",locations=[],invasiveness="manual";
+var savedBookmarkUrls={};
 
 try{var port=chrome.runtime.connect({name:"keepalive"});setInterval(function(){try{port.postMessage({ping:true});}catch(e){}},20000);}catch(e){}
 
 function send(msg,cb){try{chrome.runtime.sendMessage(msg,function(r){if(chrome.runtime.lastError){if(cb)cb(null);return;}if(cb)cb(r);});}catch(e){if(cb)cb(null);}}
+
+function normalizeUrl(url){
+  if(!url)return "";
+  try{
+    var parsed=new URL(url);
+    parsed.hash="";
+    var normalized=parsed.toString();
+    if(normalized.length>1&&normalized.charAt(normalized.length-1)==="/") normalized=normalized.slice(0,-1);
+    return normalized;
+  }catch(e){
+    return String(url);
+  }
+}
+
+function articleUrl(item){
+  return normalizeUrl(item&&(item.link||item.url||""));
+}
+
+function isSavedArticle(item){
+  var url=articleUrl(item);
+  return !!(url&&savedBookmarkUrls[url]);
+}
+
+function markArticleSaved(item){
+  var url=articleUrl(item);
+  if(url) savedBookmarkUrls[url]=true;
+}
+
+function bookmarkIcon(saved){
+  if(saved){
+    return '<svg viewBox="0 0 14 14" fill="currentColor" width="14" height="14"><path d="M3 2h8v11l-4-3-4 3V2z"/></svg>';
+  }
+  return '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14"><path d="M3 2h8v11l-4-3-4 3V2z"/></svg>';
+}
+
+function updateBookmarkButton(btn,saved){
+  btn.innerHTML=bookmarkIcon(saved);
+  btn.title=saved?"Saved to account":"Save to account";
+  btn.disabled=!!saved;
+  btn.style.opacity=saved?"1":"";
+  btn.setAttribute("aria-pressed",saved?"true":"false");
+}
+
+function loadSavedBookmarks(cb){
+  send({type:"GET_SAVED_BOOKMARK_URLS"},function(r){
+    savedBookmarkUrls={};
+    if(r&&r.success&&Array.isArray(r.urls)){
+      r.urls.forEach(function(url){
+        var normalized=normalizeUrl(url);
+        if(normalized) savedBookmarkUrls[normalized]=true;
+      });
+    }
+    if(cb)cb();
+  });
+}
 
 function init(){
   chrome.storage.local.get(["userLocations","invasiveness","setupComplete"],function(d){
@@ -16,7 +72,10 @@ function init(){
   });
   // Actively read auth from the website tab, then display
   syncAuthFromWebsite(function(){
-    send({type:"GET_AUTH"},function(r){ updateAuthDisplay(r&&r.email||null); });
+    send({type:"GET_AUTH"},function(r){
+      updateAuthDisplay(r&&r.email||null);
+      loadSavedBookmarks();
+    });
   });
   bindEvents();
 }
@@ -161,13 +220,14 @@ function renderArticles(items){
     var tag=item.nonprofit?"NON-PROFIT":(item.sourceName||"LOCAL");
     var tagCls=item.nonprofit?"card-source-tag nonprofit":"card-source-tag";
     var dateStr=item.publishedAt?formatDate(item.publishedAt):"";
+    var saved=isSavedArticle(item);
     return '<div class="card"><span class="'+tagCls+'">'+esc(tag)+'</span>'+
       '<div class="card-headline">'+esc(truncate(item.title,80))+'</div>'+
       '<div class="card-author">'+esc(item.sourceName||"")+(dateStr?' &middot; '+dateStr:'')+'</div>'+
       '<div class="card-snippet">'+esc(truncate(item.description||"",140))+'</div>'+
       '<div class="card-actions">'+
         '<a class="btn-read" href="'+escA(item.link)+'" target="_blank" rel="noopener noreferrer">Read All About It <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12"><path d="M3 9L9 3M9 3H4M9 3V8"/></svg></a>'+
-        '<button class="btn-icon btn-bookmark" title="Save to account" data-idx="'+idx+'"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14"><path d="M3 2h8v11l-4-3-4 3V2z"/></svg></button>'+
+        '<button class="btn-icon btn-bookmark" title="'+(saved?'Saved to account':'Save to account')+'" data-idx="'+idx+'" aria-pressed="'+(saved?'true':'false')+'" '+(saved?'disabled':'')+'>'+bookmarkIcon(saved)+'</button>'+
       '</div></div>';
   }).join("");
 
@@ -176,9 +236,10 @@ function renderArticles(items){
     btn.addEventListener("click",function(){
       var i=parseInt(btn.getAttribute("data-idx"));
       var item=items[i];if(!item)return;
+      if(isSavedArticle(item)){updateBookmarkButton(btn,true);return;}
       btn.style.opacity="0.5";btn.disabled=true;
       send({type:"SAVE_BOOKMARK",article:item},function(r){
-        if(r&&r.success){btn.innerHTML='<svg viewBox="0 0 14 14" fill="currentColor" width="14" height="14"><path d="M3 2h8v11l-4-3-4 3V2z"/></svg>';btn.title="Saved!";}
+        if(r&&r.success){markArticleSaved(item);updateBookmarkButton(btn,true);}
         else{btn.style.opacity="1";btn.disabled=false;btn.title=(r&&r.error)||"Save failed";}
       });
     });
