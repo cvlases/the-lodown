@@ -23,25 +23,57 @@ function init(){
 
 // Read the Supabase session from the open website tab and cache it locally
 function syncAuthFromWebsite(cb){
-  chrome.tabs.query({url:["https://the-lodown.vercel.app/*","http://localhost:*/*"]},function(tabs){
-    if(chrome.runtime.lastError||!tabs||tabs.length===0){if(cb)cb();return;}
-    chrome.scripting.executeScript({
-      target:{tabId:tabs[0].id},
-      func:function(){
-        try{
-          var k=Object.keys(localStorage).find(function(k){return k.startsWith("sb-")&&k.endsWith("-auth-token");});
-          if(!k)return null;
-          var d=JSON.parse(localStorage.getItem(k));
-          return d&&d.access_token?{token:d.access_token,email:d.user&&d.user.email||null}:null;
-        }catch(e){return null;}
-      }
-    },function(results){
-      if(!chrome.runtime.lastError&&results&&results[0]&&results[0].result){
-        var r=results[0].result;
-        chrome.storage.local.set({authToken:r.token,userEmail:r.email||null});
-      }
-      if(cb)cb();
+  chrome.tabs.query({},function(allTabs){
+    if(chrome.runtime.lastError){if(cb)cb();return;}
+    var siteTabs=(allTabs||[]).filter(function(t){
+      return t.url&&(t.url.indexOf("the-lodown.vercel.app")!==-1||t.url.indexOf("localhost")!==-1);
     });
+    if(siteTabs.length===0){if(cb)cb();return;}
+    tryTabsForAuth(siteTabs,0,cb);
+  });
+}
+
+function tryTabsForAuth(tabs,idx,cb){
+  if(idx>=tabs.length){
+    if(cb)cb();
+    return;
+  }
+  // Extract project ref from config URL so we only read OUR Supabase session
+  var projRef=LODOWN_CONFIG.SUPABASE_URL.replace(/https?:\/\//,"").split(".")[0];
+  chrome.scripting.executeScript({
+    target:{tabId:tabs[idx].id},
+    func:function(projRef){
+      try{
+        var key="sb-"+projRef+"-auth-token";
+        var d=JSON.parse(localStorage.getItem(key));
+        if(!d||!d.access_token)return null;
+        var email=(d.user&&d.user.email)||null;
+        if(!email){
+          try{
+            var seg=d.access_token.split(".")[1].replace(/-/g,"+").replace(/_/g,"/");
+            while(seg.length%4)seg+="=";
+            var p=JSON.parse(atob(seg));
+            email=p.email||null;
+          }catch(e2){}
+        }
+        if(!email)return null; // skip anonymous sessions
+        return{token:d.access_token,email:email};
+      }catch(e){return null;}
+    },
+    args:[projRef]
+  },function(results){
+    if(chrome.runtime.lastError){
+      tryTabsForAuth(tabs,idx+1,cb);
+      return;
+    }
+    var result=results&&results[0]&&results[0].result;
+    if(result&&result.token&&result.email){
+      chrome.storage.local.set({authToken:result.token,userEmail:result.email},function(){
+        if(cb)cb();
+      });
+    }else{
+      tryTabsForAuth(tabs,idx+1,cb);
+    }
   });
 }
 

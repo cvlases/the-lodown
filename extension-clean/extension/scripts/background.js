@@ -291,7 +291,7 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
       if (!d.authToken) { sendResponse({success:false,error:"Sign in on the website first"}); return; }
       sbAuthPost("extension_bookmarks", {
         headline: msg.article.title, source: msg.article.sourceName||null,
-        author: msg.article.author||null, url: msg.article.url
+        author: msg.article.author||null, url: msg.article.link || msg.article.url || null
       }, d.authToken).then(function(r){ sendResponse({success:r.ok||r.status===409}); })
         .catch(function(e){ sendResponse({success:false,error:e.message}); });
     }); return true;
