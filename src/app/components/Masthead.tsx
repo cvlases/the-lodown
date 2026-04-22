@@ -1,8 +1,16 @@
+// Masthead.tsx — persistent header with title, nav, and auth
+//
+// Auth states:
+//   logged out → "Sign In" button opens a form with Sign In / Register tabs
+//   logged in  → shows truncated email + Sign Out link
+
 import { useEffect, useState } from 'react';
-import imgFavorite from "../../imports/Frame29/e6a8f8e71edf1d58d7cc500052563898c462f1c6.png";
-import imgBooks from "../../imports/Frame29/63c86cc538ebcce955adc8fe5bc6a1427bf54d93.png";
-import imgOpenBook from "../../imports/Frame29/e5fc9fba73bdd6faf0af3d9f11427e9251768390.png";
-import imgBookmark from "../../imports/Frame29/b9fbbce8452ecbc8c86b15c9f2b3b06ef7aa1941.png";
+import type { User } from '@supabase/supabase-js';
+import { supabase } from '../../lib/supabase';
+import imgFollowing from "../../imports/icon-following.svg";
+import imgBooks     from "../../imports/Frame29/63c86cc538ebcce955adc8fe5bc6a1427bf54d93.png";
+import imgOpenBook  from "../../imports/Frame29/e5fc9fba73bdd6faf0af3d9f11427e9251768390.png";
+import imgBookmark  from "../../imports/Frame29/b9fbbce8452ecbc8c86b15c9f2b3b06ef7aa1941.png";
 
 type Screen = 'browse' | 'saved' | 'following' | 'extension';
 
@@ -11,22 +19,36 @@ interface MastheadProps {
   onNavClick: (screen: Screen) => void;
   isLoginOpen: boolean;
   setIsLoginOpen: (open: boolean) => void;
+  user: User | null;
 }
 
-export default function Masthead({ activeScreen, onNavClick, isLoginOpen, setIsLoginOpen }: MastheadProps) {
+export default function Masthead({ activeScreen, onNavClick, isLoginOpen, setIsLoginOpen, user }: MastheadProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(true);
 
+  // Auth form state
+  const [authMode, setAuthMode]       = useState<'signin' | 'signup'>('signin');
+  const [email, setEmail]             = useState('');
+  const [password, setPassword]       = useState('');
+  const [authError, setAuthError]     = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (isLoginOpen) {
-          setIsLoginOpen(false);
-        }
-      }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isLoginOpen) setIsLoginOpen(false);
     };
-    window.addEventListener('keydown', handleEscape);
-    return () => window.removeEventListener('keydown', handleEscape);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, [isLoginOpen, setIsLoginOpen]);
+
+  // Reset form when closed
+  useEffect(() => {
+    if (!isLoginOpen) {
+      setEmail('');
+      setPassword('');
+      setAuthError('');
+      setAuthMode('signin');
+    }
+  }, [isLoginOpen]);
 
   const handleNavClick = (screen: Screen) => {
     if (!isLoginOpen) {
@@ -36,155 +58,188 @@ export default function Masthead({ activeScreen, onNavClick, isLoginOpen, setIsL
     }
   };
 
-  const handleSignInClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsLoginOpen(!isLoginOpen);
+  const handleAuth = async () => {
+    if (!email || !password) { setAuthError('Please fill in all fields.'); return; }
+    setAuthLoading(true);
+    setAuthError('');
+
+    if (authMode === 'signin') {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) setAuthError(error.message);
+    } else {
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) setAuthError(error.message);
+      else setAuthError('Account created! Check your email to confirm, then sign in.');
+    }
+    setAuthLoading(false);
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
   };
 
   return (
     <div className="relative flex-shrink-0 bg-[#e5d8c8]" style={{ perspective: '1200px' }}>
-      {/* Title Bar - Always Visible */}
+
+      {/* ── Title bar ─────────────────────────────────────────────── */}
       <div className="relative z-20 bg-[#e5d8c8]">
-        {/* Top Border */}
         <div className="h-2 border-t-4 border-b-4 border-[#3e3232] mx-8 mt-4" />
 
-        {/* Title */}
         <div className="text-center py-6 relative">
           <h1 className="font-['Heading_Now_Trial:16_Bold',sans-serif] text-[#3e3232] text-[60px] sm:text-[80px] lg:text-[100px] tracking-[6px] lg:tracking-[10px] uppercase leading-[1]">
             The LoDown
           </h1>
 
-          {/* Sign In Button - Top Right */}
-          <button
-            onClick={handleSignInClick}
-            className="absolute right-8 top-1/2 -translate-y-1/2 font-['Didot:Regular',sans-serif] text-[16px] lg:text-[20px] text-[#3e3232] underline hover:no-underline z-30"
-          >
-            {isLoginOpen ? 'Close' : 'Sign In'}
-          </button>
+          {/* Auth controls — top right of title */}
+          <div className="absolute right-8 top-1/2 -translate-y-1/2 z-30 flex items-center gap-3">
+            {user ? (
+              <>
+                <span className="font-['Didot:Italic',sans-serif] italic text-[14px] text-[#3e3232] hidden lg:inline">
+                  {user.email}
+                </span>
+                <button
+                  onClick={handleSignOut}
+                  className="font-['Didot:Regular',sans-serif] text-[16px] lg:text-[20px] text-[#3e3232] underline hover:no-underline"
+                >
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setIsLoginOpen(!isLoginOpen)}
+                className="font-['Didot:Regular',sans-serif] text-[16px] lg:text-[20px] text-[#3e3232] underline hover:no-underline"
+              >
+                {isLoginOpen ? 'Close' : 'Sign In'}
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Bottom Border */}
         <div className="h-2 border-t-4 border-b-4 border-[#3e3232] mx-8" />
       </div>
 
-      {/* Login Form - Behind folding menu */}
-      {isLoginOpen && (
-        <div className="relative z-0 bg-[#e5d8c8] border-x-4 border-b-4 border-[#3e3232] mx-8 p-8 max-w-md mx-auto">
-          <h2 className="font-['Heading_Now_Trial:16_Bold',sans-serif] text-[32px] lg:text-[40px] text-[#3e3232] text-center tracking-[4px] uppercase mb-6">
-            SIGN IN
-          </h2>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block font-['Didot:Regular',sans-serif] text-[16px] text-[#3e3232] mb-2">
-                Email
-              </label>
-              <input
-                type="email"
-                className="w-full border-2 border-[#3e3232] bg-[#e5d8c8] px-3 py-2 font-['Didot:Regular',sans-serif] text-[14px] text-[#3e3232] focus:outline-none focus:ring-2 focus:ring-[#3e3232]"
-                placeholder="your@email.com"
-              />
+      {/* ── Auth modal ─────────────────────────────────────────────── */}
+      {/* Fixed overlay: blurs the page, centers the form */}
+      {isLoginOpen && !user && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center"
+          style={{ backdropFilter: 'blur(6px)', backgroundColor: 'rgba(62,50,50,0.35)' }}
+          onClick={() => setIsLoginOpen(false)}
+        >
+          {/* Stop clicks inside the form from closing the modal */}
+          <div
+            className="bg-[#e5d8c8] border-4 border-[#3e3232] p-8 w-full max-w-md mx-4"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <div className="flex justify-end mb-2">
+              <button
+                onClick={() => setIsLoginOpen(false)}
+                className="font-['Didot:Regular',sans-serif] text-[20px] text-[#3e3232] hover:opacity-50 leading-none"
+                aria-label="Close"
+              >
+                ×
+              </button>
             </div>
 
-            <div>
-              <label className="block font-['Didot:Regular',sans-serif] text-[16px] text-[#3e3232] mb-2">
-                Password
-              </label>
-              <input
-                type="password"
-                className="w-full border-2 border-[#3e3232] bg-[#e5d8c8] px-3 py-2 font-['Didot:Regular',sans-serif] text-[14px] text-[#3e3232] focus:outline-none focus:ring-2 focus:ring-[#3e3232]"
-                placeholder="••••••••"
-              />
+            {/* Sign In / Register tabs */}
+            <div className="flex border-b-2 border-[#3e3232] mb-6">
+              {(['signin', 'signup'] as const).map(mode => (
+                <button
+                  key={mode}
+                  onClick={() => { setAuthMode(mode); setAuthError(''); }}
+                  className={`flex-1 py-2 font-['Heading_Now_Trial:25_Medium',sans-serif] text-[16px] tracking-[2px] uppercase transition-colors ${
+                    authMode === mode
+                      ? 'bg-[#3e3232] text-[#e5d8c8]'
+                      : 'text-[#3e3232] hover:bg-[rgba(62,50,50,0.08)]'
+                  }`}
+                >
+                  {mode === 'signin' ? 'Sign In' : 'Register'}
+                </button>
+              ))}
             </div>
 
-            <button className="w-full bg-[#3e3232] text-[#e5d8c8] py-3 font-['Heading_Now_Trial:25_Medium',sans-serif] text-[18px] tracking-[1.8px] uppercase hover:bg-[#2a1f1f] transition-colors">
-              Submit
-            </button>
+            <div className="space-y-4">
+              <div>
+                <label className="block font-['Didot:Regular',sans-serif] text-[16px] text-[#3e3232] mb-2">Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleAuth()}
+                  placeholder="your@email.com"
+                  autoFocus
+                  className="w-full border-2 border-[#3e3232] bg-[#e5d8c8] px-3 py-2 font-['Didot:Regular',sans-serif] text-[14px] text-[#3e3232] focus:outline-none focus:ring-2 focus:ring-[#3e3232]"
+                />
+              </div>
+              <div>
+                <label className="block font-['Didot:Regular',sans-serif] text-[16px] text-[#3e3232] mb-2">Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleAuth()}
+                  placeholder="••••••••"
+                  className="w-full border-2 border-[#3e3232] bg-[#e5d8c8] px-3 py-2 font-['Didot:Regular',sans-serif] text-[14px] text-[#3e3232] focus:outline-none focus:ring-2 focus:ring-[#3e3232]"
+                />
+              </div>
 
-            <p className="text-center font-['Didot:Italic',sans-serif] italic text-[14px] text-[#3e3232]">
-              Don't have an account?{' '}
-              <button className="underline hover:no-underline">Register here</button>
-            </p>
+              {authError && (
+                <p className="font-['Didot:Italic',sans-serif] italic text-[13px] text-[#3e3232] opacity-80">
+                  {authError}
+                </p>
+              )}
+
+              <button
+                onClick={handleAuth}
+                disabled={authLoading}
+                className="w-full bg-[#3e3232] text-[#e5d8c8] py-3 font-['Heading_Now_Trial:25_Medium',sans-serif] text-[18px] tracking-[1.8px] uppercase hover:bg-[#2a1f1f] transition-colors disabled:opacity-50"
+              >
+                {authLoading ? '...' : authMode === 'signin' ? 'Sign In' : 'Create Account'}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Navigation Menu - Folds Down */}
+      {/* ── Navigation bar — folds when login form is open ────────── */}
       <div
-        className="relative z-10 bg-[#e5d8c8] transition-all duration-600 ease-in-out"
+        className="relative z-10 bg-[#e5d8c8] transition-all duration-[600ms] ease-in-out"
         style={{
           transformOrigin: 'top center',
-          transform: isLoginOpen
-            ? 'perspective(1200px) rotateX(-75deg)'
-            : isMenuOpen
-              ? 'perspective(1200px) rotateX(0deg)'
-              : 'perspective(1200px) rotateX(-5deg)',
+          transform: isMenuOpen
+            ? 'perspective(1200px) rotateX(0deg)'
+            : 'perspective(1200px) rotateX(-5deg)',
           transformStyle: 'preserve-3d',
         }}
       >
-        <div className="px-8 lg:px-16 py-4 relative">
+        <div className="px-8 lg:px-16 py-4">
           <div className="flex items-end justify-center gap-6 lg:gap-12">
-            {/* Browse */}
-            <button
-              onClick={() => handleNavClick('browse')}
-              className="flex flex-col items-center gap-1 group relative"
-            >
-              <img src={imgBooks} alt="" className="size-[30px] lg:size-[40px] object-contain" />
-              <span className="font-['Didot:Regular',sans-serif] text-[16px] lg:text-[24px] text-[#3e3232] tracking-[-1px] uppercase">
-                Browse
-              </span>
-              {activeScreen === 'browse' && (
-                <div className="absolute -bottom-1 left-0 right-0 h-[2px] bg-[#3e3232]" />
-              )}
-            </button>
 
-            {/* Saved */}
-            <button
-              onClick={() => handleNavClick('saved')}
-              className="flex flex-col items-center gap-1 group relative"
-            >
-              <img src={imgBookmark} alt="" className="size-[30px] lg:size-[40px] object-contain" />
-              <span className="font-['Didot:Regular',sans-serif] text-[16px] lg:text-[24px] text-[#3e3232] tracking-[-1px] uppercase">
-                Saved
-              </span>
-              {activeScreen === 'saved' && (
-                <div className="absolute -bottom-1 left-0 right-0 h-[2px] bg-[#3e3232]" />
-              )}
-            </button>
+            <NavButton label="Browse"    icon={imgBooks}    active={activeScreen === 'browse'}    onClick={() => handleNavClick('browse')} />
+            <NavButton label="Saved"     icon={imgBookmark} active={activeScreen === 'saved'}     onClick={() => handleNavClick('saved')} />
+            <NavButton label="Following" icon={imgFollowing} active={activeScreen === 'following'} onClick={() => handleNavClick('following')} />
+            <NavButton label="Extension" icon={imgOpenBook} active={activeScreen === 'extension'} onClick={() => handleNavClick('extension')} />
 
-            {/* Following */}
-            <button
-              onClick={() => handleNavClick('following')}
-              className="flex flex-col items-center gap-1 group relative"
-            >
-              <img src={imgFavorite} alt="" className="size-[30px] lg:size-[40px] object-contain" />
-              <span className="font-['Didot:Regular',sans-serif] text-[16px] lg:text-[24px] text-[#3e3232] tracking-[-1px] uppercase">
-                Following
-              </span>
-              {activeScreen === 'following' && (
-                <div className="absolute -bottom-1 left-0 right-0 h-[2px] bg-[#3e3232]" />
-              )}
-            </button>
-
-            {/* Extension */}
-            <button
-              onClick={() => handleNavClick('extension')}
-              className="flex flex-col items-center gap-1 group relative"
-            >
-              <img src={imgOpenBook} alt="" className="size-[30px] lg:size-[40px] object-contain" />
-              <span className="font-['Didot:Regular',sans-serif] text-[16px] lg:text-[24px] text-[#3e3232] tracking-[-1px] uppercase">
-                Extension
-              </span>
-              {activeScreen === 'extension' && (
-                <div className="absolute -bottom-1 left-0 right-0 h-[2px] bg-[#3e3232]" />
-              )}
-            </button>
           </div>
         </div>
-
-        {/* Bottom Divider */}
         <div className="h-[4px] bg-[#3e3232] mx-8" />
       </div>
+
     </div>
+  );
+}
+
+// ── NavButton ─────────────────────────────────────────────────────────────────
+
+function NavButton({ label, icon, active, onClick }: { label: string; icon: string; active: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="flex flex-col items-center gap-1 relative">
+      <img src={icon} alt="" className="size-[30px] lg:size-[40px] object-contain" />
+      <span className="font-['Didot:Regular',sans-serif] text-[16px] lg:text-[24px] text-[#3e3232] tracking-[-1px] uppercase">
+        {label}
+      </span>
+      {active && <div className="absolute -bottom-1 left-0 right-0 h-[2px] bg-[#3e3232]" />}
+    </button>
   );
 }
