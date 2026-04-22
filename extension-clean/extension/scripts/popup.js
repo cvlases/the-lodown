@@ -14,42 +14,51 @@ function init(){
     invasiveness=d.invasiveness||"manual";
     if(!d.setupComplete)showSetup();else{updateLocDisp();checkTab();}
   });
-  send({type:"GET_AUTH"},function(r){
-    if(r&&r.loggedIn){
-      $("#authArea").innerHTML='<span class="auth-email">'+esc(r.email)+'</span> <button id="logoutBtn" class="auth-link">Sign Out</button>';
-      $("#logoutBtn").addEventListener("click",function(){send({type:"LOGOUT"},function(){$("#authArea").innerHTML='<button id="loginBtn" class="auth-link">Sign In</button>';bindLogin();});});
-    } else { bindLogin(); }
+  // Actively read auth from the website tab, then display
+  syncAuthFromWebsite(function(){
+    send({type:"GET_AUTH"},function(r){ updateAuthDisplay(r&&r.email||null); });
   });
   bindEvents();
 }
 
-function bindLogin(){
-  var b=$("#loginBtn"); if(!b)return;
-  b.addEventListener("click",function(){
-    var area=$("#authArea");
-    area.innerHTML='<input id="emailIn" type="email" placeholder="email" class="auth-input"><input id="passIn" type="password" placeholder="password" class="auth-input"><button id="doLogin" class="auth-link">Go</button>';
-    $("#doLogin").addEventListener("click",doLogin);
-    $("#passIn").addEventListener("keydown",function(e){if(e.key==="Enter")doLogin();});
+// Read the Supabase session from the open website tab and cache it locally
+function syncAuthFromWebsite(cb){
+  chrome.tabs.query({url:["https://the-lodown.vercel.app/*","http://localhost:*/*"]},function(tabs){
+    if(chrome.runtime.lastError||!tabs||tabs.length===0){if(cb)cb();return;}
+    chrome.scripting.executeScript({
+      target:{tabId:tabs[0].id},
+      func:function(){
+        try{
+          var k=Object.keys(localStorage).find(function(k){return k.startsWith("sb-")&&k.endsWith("-auth-token");});
+          if(!k)return null;
+          var d=JSON.parse(localStorage.getItem(k));
+          return d&&d.access_token?{token:d.access_token,email:d.user&&d.user.email||null}:null;
+        }catch(e){return null;}
+      }
+    },function(results){
+      if(!chrome.runtime.lastError&&results&&results[0]&&results[0].result){
+        var r=results[0].result;
+        chrome.storage.local.set({authToken:r.token,userEmail:r.email||null});
+      }
+      if(cb)cb();
+    });
   });
 }
 
-function doLogin(){
-  var email=$("#emailIn").value.trim(),pass=$("#passIn").value;
-  if(!email||!pass)return;
-  send({type:"LOGIN",email:email,password:pass},function(r){
-    if(r&&r.success){
-      $("#authArea").innerHTML='<span class="auth-email">'+esc(r.email)+'</span> <button id="logoutBtn" class="auth-link">Sign Out</button>';
-      $("#logoutBtn").addEventListener("click",function(){send({type:"LOGOUT"},function(){$("#authArea").innerHTML='<button id="loginBtn" class="auth-link">Sign In</button>';bindLogin();});});
-    } else {
-      var msg = (r&&r.error) || "Login failed";
-      $("#authArea").innerHTML='<span class="auth-email" style="color:var(--heart)">'+esc(msg)+'</span> <button id="loginBtn" class="auth-link">Retry</button>';
-      bindLogin();
-    }
-  });
+// Show "Hi, name" in the header — no login form in the extension
+function updateAuthDisplay(email){
+  var area=document.getElementById("authArea");
+  if(email){
+    var name=email.split("@")[0];
+    area.innerHTML='<span class="auth-email">Hi, '+esc(name)+'</span>';
+  }else{
+    area.innerHTML='';
+  }
 }
 
 function bindEvents(){
   $("#settingsBtn").addEventListener("click",function(){currentView==="main"?showSetup():showMain();});
+  $("#openLibraryBtn").addEventListener("click",function(){chrome.tabs.create({url:LODOWN_CONFIG.WEBSITE_URL+"?tab=saved"});});
   $("#addLocationBtn").addEventListener("click",addLoc);
   $("#stateInput").addEventListener("keydown",function(e){if(e.key==="Enter")addLoc();});
   $("#saveSettingsBtn").addEventListener("click",saveSettings);

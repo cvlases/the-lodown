@@ -28,6 +28,7 @@ export default function Masthead({ activeScreen, onNavClick, isLoginOpen, setIsL
 
   // Auth form state
   const [authMode, setAuthMode]       = useState<'signin' | 'signup'>('signin');
+  const [name, setName]               = useState('');
   const [email, setEmail]             = useState('');
   const [password, setPassword]       = useState('');
   const [authError, setAuthError]     = useState('');
@@ -44,6 +45,7 @@ export default function Masthead({ activeScreen, onNavClick, isLoginOpen, setIsL
   // Reset form when closed
   useEffect(() => {
     if (!isLoginOpen) {
+      setName('');
       setEmail('');
       setPassword('');
       setAuthError('');
@@ -60,6 +62,7 @@ export default function Masthead({ activeScreen, onNavClick, isLoginOpen, setIsL
   };
 
   const handleAuth = async () => {
+    if (authMode === 'signup' && !name.trim()) { setAuthError('Please enter your name.'); return; }
     if (!email || !password) { setAuthError('Please fill in all fields.'); return; }
     setAuthLoading(true);
     setAuthError('');
@@ -68,7 +71,11 @@ export default function Masthead({ activeScreen, onNavClick, isLoginOpen, setIsL
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) setAuthError(error.message);
     } else {
-      const { error } = await supabase.auth.signUp({ email, password });
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: name.trim() } },
+      });
       if (error) setAuthError(error.message);
       else setAuthError('Account created! Check your email to confirm, then sign in.');
     }
@@ -101,7 +108,7 @@ export default function Masthead({ activeScreen, onNavClick, isLoginOpen, setIsL
             {user ? (
               <>
                 <span className="font-['Didot:Italic',sans-serif] italic text-[11px] text-[#3e3232] hidden lg:inline opacity-70">
-                  {user.email}
+                  {user.user_metadata?.full_name || user.email}
                 </span>
                 <button onClick={handleSignOut} className="font-['Heading_Now_Trial:25_Medium',sans-serif] text-[10px] lg:text-[11px] tracking-[2px] text-[#3e3232] uppercase underline hover:no-underline">
                   Sign Out
@@ -179,6 +186,20 @@ export default function Masthead({ activeScreen, onNavClick, isLoginOpen, setIsL
             </div>
 
             <div className="space-y-4">
+              {authMode === 'signup' && (
+                <div>
+                  <label className="block font-['Didot:Regular',sans-serif] text-[16px] text-[#3e3232] mb-2">Name</label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleAuth()}
+                    placeholder="Your name"
+                    autoFocus
+                    className="w-full border-2 border-[#3e3232] bg-[#e5d8c8] px-3 py-2 font-['Didot:Regular',sans-serif] text-[14px] text-[#3e3232] focus:outline-none focus:ring-2 focus:ring-[#3e3232]"
+                  />
+                </div>
+              )}
               <div>
                 <label className="block font-['Didot:Regular',sans-serif] text-[16px] text-[#3e3232] mb-2">Email</label>
                 <input
@@ -187,7 +208,7 @@ export default function Masthead({ activeScreen, onNavClick, isLoginOpen, setIsL
                   onChange={e => setEmail(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleAuth()}
                   placeholder="your@email.com"
-                  autoFocus
+                  autoFocus={authMode === 'signin'}
                   className="w-full border-2 border-[#3e3232] bg-[#e5d8c8] px-3 py-2 font-['Didot:Regular',sans-serif] text-[14px] text-[#3e3232] focus:outline-none focus:ring-2 focus:ring-[#3e3232]"
                 />
               </div>

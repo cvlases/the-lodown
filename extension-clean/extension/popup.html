@@ -62,7 +62,7 @@ body{width:380px;min-height:500px;max-height:600px;overflow-y:auto;background:va
     <svg width="36" height="36" viewBox="0 0 48 48" fill="none"><rect x="4" y="10" width="40" height="30" rx="2" fill="#D4C5A9" stroke="#F5F0E8" stroke-width="1.5"/><rect x="8" y="14" width="16" height="10" fill="#8B7355"/><line x1="8" y1="28" x2="36" y2="28" stroke="#8B7355" stroke-width="1.5"/><line x1="8" y1="32" x2="36" y2="32" stroke="#8B7355" stroke-width="1.5"/><rect x="2" y="6" width="12" height="10" rx="1" fill="#C9A96E" stroke="#F5F0E8" stroke-width="1"/><text x="8" y="13" text-anchor="middle" fill="#2C2416" font-family="Oswald" font-size="6" font-weight="700">NEWS</text></svg>
     <div class="header-title">The Lodown</div>
   </div>
-  <div class="auth-area" id="authArea"><button id="loginBtn" class="auth-link">Sign In</button></div>
+  <div class="auth-area" id="authArea"></div>
 </div>
 <div class="context-bar" id="contextBar" style="display:none">YOU'RE READING ON <span class="owner-name" id="ownerName"></span></div>
 <div class="location-bar"><h2>Get the Local Story</h2><div class="location-tag" id="locationDisplay">IN PITTSBURGH, PA</div></div>
@@ -86,9 +86,11 @@ body{width:380px;min-height:500px;max-height:600px;overflow-y:auto;background:va
   </div>
   <button class="btn-save" id="saveSettingsBtn">Save Settings</button>
 </div>
-<div class="footer"><span class="footer-text">Open Your Library</span>
+<div class="footer">
+  <button id="openLibraryBtn" class="footer-text" style="background:none;border:none;cursor:pointer;text-align:left;padding:0;text-decoration:underline;text-underline-offset:2px">Open Your Library ↗</button>
   <button class="footer-btn" id="settingsBtn" title="Settings"><svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path d="M10 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm0 5.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm0 5.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/></svg></button>
 </div>
+<script src="scripts/config.js"></script>
 <script src="scripts/popup.js"></script>
 </body>
 </html>

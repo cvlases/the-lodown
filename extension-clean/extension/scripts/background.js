@@ -321,6 +321,14 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
       sendResponse({ loggedIn: !!d.authToken, email: d.userEmail || null });
     }); return true;
   }
+  if (msg.type === "SYNC_AUTH") {
+    if (msg.token) {
+      chrome.storage.local.set({ authToken: msg.token, userEmail: msg.email || null });
+    } else {
+      chrome.storage.local.remove(["authToken", "userEmail"]);
+    }
+    return false;
+  }
   if (msg.type === "TRACK_VISIT") {
     chrome.storage.local.get(["authToken"]).then(function(d) {
       if (!d.authToken) { sendResponse({ success: false }); return; }

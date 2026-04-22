@@ -12,7 +12,11 @@ import Masthead           from './components/Masthead';
 type Screen = 'browse' | 'saved' | 'following' | 'extension' | 'about' | 'submit';
 
 export default function App() {
-  const [activeScreen, setActiveScreen] = useState<Screen>('browse');
+  const [activeScreen, setActiveScreen] = useState<Screen>(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tab') === 'saved') return 'saved';
+    return 'browse';
+  });
   const [isLoginOpen, setIsLoginOpen]   = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [user, setUser]                 = useState<User | null>(null);
@@ -20,10 +24,15 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+      // Let the extension content script pick up auth via localStorage — no event needed here
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       setUser(session?.user ?? null);
       if (session?.user) setIsLoginOpen(false);
+      // Notify extension content script of auth changes
+      window.dispatchEvent(new CustomEvent('lodown:auth-change', {
+        detail: { token: session?.access_token ?? null, email: session?.user?.email ?? null },
+      }));
     });
     return () => subscription.unsubscribe();
   }, []);

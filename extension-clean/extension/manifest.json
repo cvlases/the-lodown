@@ -4,7 +4,8 @@
   "version": "2.0.0",
   "description": "Resist corporate media. Amplify local news.",
   "permissions": ["activeTab","storage","tabs","scripting"],
-  "host_permissions": ["https://html.duckduckgo.com/*","https://duckduckgo.com/*","https://zssxkynyehqgfcrfaopc.supabase.co/*"],
+  "host_permissions": ["https://html.duckduckgo.com/*","https://duckduckgo.com/*","https://zssxkynyehqgfcrfaopc.supabase.co/*","https://the-lodown.vercel.app/*","http://localhost:*/*"],
+  "content_scripts": [{"matches":["https://the-lodown.vercel.app/*","http://localhost:*/*"],"js":["scripts/content.js"],"run_at":"document_idle"}],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {"16":"icons/icon16.png","48":"icons/icon48.png","128":"icons/icon128.png"}
