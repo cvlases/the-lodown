@@ -47,6 +47,7 @@ export default function BrowseScreen({ onSubmitClick }: Props) {
   const mapDivRef  = useRef<HTMLDivElement>(null);
   const mapRef     = useRef<any>(null);
   const markersRef = useRef<Record<string, any>>({});
+  const currentInfoWindowRef = useRef<any>(null);
   const [mapReady, setMapReady] = useState(false);
 
   function initMap() {
@@ -106,6 +107,11 @@ export default function BrowseScreen({ onSubmitClick }: Props) {
 
       const infoWindow = new G.InfoWindow();
       marker.addListener('click', () => {
+        // Close the previous infoWindow if one is open
+        if (currentInfoWindowRef.current) {
+          currentInfoWindowRef.current.close();
+        }
+        
         infoWindow.setContent(`
           <div style="font-family:serif;color:#3e3232;padding:4px 2px;min-width:150px;">
             <strong style="font-size:13px;letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:6px;">${source.name}</strong>
@@ -113,6 +119,7 @@ export default function BrowseScreen({ onSubmitClick }: Props) {
           </div>
         `);
         infoWindow.open(mapRef.current, marker);
+        currentInfoWindowRef.current = infoWindow;
         setHoveredSource(source.id);
       });
     });
@@ -156,25 +163,37 @@ export default function BrowseScreen({ onSubmitClick }: Props) {
       </div>
 
       {/* Map + directory */}
-      <div className="flex flex-col lg:flex-row gap-6">
-
-        {/* Interactive Google Map */}
-        <div className="w-full lg:w-1/2 aspect-square lg:aspect-auto lg:h-[500px] border-4 border-[#3e3232] overflow-hidden">
-          <div ref={mapDivRef} className="w-full h-full" />
+      <div className="mb-6">
+        {/* Section header */}
+        <div className="text-center mb-6">
+          <div className="text-[12px] lg:text-[14px] tracking-widest text-[#3e3232] mb-2 uppercase font-['Didot:Regular',sans-serif]">
+            Find Local Coverage
+          </div>
+          <h2 className="font-['Didot:Regular',sans-serif] text-[28px] lg:text-[44px] text-[#3e3232] mb-2">
+            Local Sources Near You
+          </h2>
+          <div className="h-[2px] bg-[#c2a26e] w-16 mx-auto" />
         </div>
 
-        {/* Outlet directory */}
-        <div className="flex-1 border-4 border-[#3e3232] overflow-y-auto max-h-[600px]">
+        <div className="flex flex-col lg:flex-row gap-6">
 
-          {/* Header */}
-          <div className="px-5 py-4 border-b-4 border-[#3e3232] bg-[#3e3232]">
-            <p className="font-['Heading_Now_Trial:47_Extrabold',sans-serif] text-[13px] tracking-[3px] text-[#e5d8c8] uppercase">
-              LOCAL OUTLETS · {location}
-            </p>
+          {/* Interactive Google Map */}
+          <div className="w-full lg:w-1/2 h-[400px] lg:h-[600px] border-4 border-[#3e3232] overflow-hidden">
+            <div ref={mapDivRef} className="w-full h-full" />
           </div>
 
-          <div>
-            {SOURCES.map((source, i) => (
+          {/* Outlet directory */}
+          <div className="flex-1 border-4 border-[#3e3232] overflow-y-auto h-[400px] lg:h-[600px] flex flex-col">
+
+            {/* Header */}
+            <div className="px-5 py-5 border-b-4 border-[#3e3232] bg-[#3e3232] flex-shrink-0">
+              <p className="font-['Heading_Now_Trial:47_Extrabold',sans-serif] text-[14px] lg:text-[16px] tracking-[2px] text-[#e5d8c8] uppercase">
+                LOCAL OUTLETS · {location}
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {SOURCES.map((source, i) => (
               <div
                 key={source.id}
                 className="flex items-center justify-between px-5 py-4 cursor-pointer transition-colors border-b border-[#3e3232]/20 last:border-b-0"
@@ -220,18 +239,19 @@ export default function BrowseScreen({ onSubmitClick }: Props) {
                 </a>
               </div>
             ))}
-          </div>
+            </div>
 
-          {/* Submit link */}
-          <div className="px-5 py-5 border-t-2 border-dashed border-[#3e3232] mt-0">
-            <button
-              onClick={onSubmitClick}
-              className="font-['Didot:Italic',sans-serif] italic text-[14px] text-[#3e3232] underline hover:no-underline"
-            >
-              Is your outlet missing from The LoDown? Submit for review →
-            </button>
-          </div>
+            {/* Submit link */}
+            <div className="px-5 py-5 border-t-2 border-dashed border-[#3e3232] flex-shrink-0">
+              <button
+                onClick={onSubmitClick}
+                className="font-['Didot:Italic',sans-serif] italic text-[14px] text-[#3e3232] underline hover:no-underline"
+              >
+                Is your outlet missing from The LoDown? Submit for review →
+              </button>
+            </div>
 
+          </div>
         </div>
       </div>
     </div>

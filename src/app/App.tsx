@@ -66,7 +66,7 @@ export default function App() {
         {activeScreen === 'browse'    && <BrowseScreen onSubmitClick={() => handleNavClick('submit')} />}
         {activeScreen === 'saved'     && <SavedScreen user={user} />}
         {activeScreen === 'following' && <FollowingScreen user={user} />}
-        {activeScreen === 'extension' && <ExtensionScreen />}
+        {activeScreen === 'extension' && <ExtensionScreen onBrowseClick={() => handleNavClick('browse')} />}
         {activeScreen === 'about'     && <AboutScreen />}
       </div>
     </div>
