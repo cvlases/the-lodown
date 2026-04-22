@@ -15,6 +15,11 @@ import { SOURCES } from '../../lib/sources';
 
 type Category = 'authors' | 'sources' | 'places' | 'topics';
 
+interface ActiveFilter {
+  category: Category;
+  value: string;
+}
+
 interface Article {
   id: string;
   source_id: string;
@@ -34,7 +39,7 @@ interface SavedArticleSeed {
   url: string | null;
 }
 
-const EMPTY_FOLLOWING: Record<Category, string[]> = {
+const EMPTY_INTERESTS: Record<Category, string[]> = {
   authors: [],
   sources: [],
   places:  [],
@@ -92,7 +97,7 @@ const TOPIC_STOP_WORDS = new Set([
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function FollowingScreen({ user }: { user: User | null }) {
-  const [following, setFollowing] = useState(EMPTY_FOLLOWING);
+  const [interestOptions, setInterestOptions] = useState(EMPTY_INTERESTS);
   const [rawArticles, setRawArticles] = useState<Omit<Article, 'source_name'>[]>([]);
   const [loadingArticles, setLoadingArticles] = useState(true);
 
@@ -104,22 +109,13 @@ export default function FollowingScreen({ user }: { user: User | null }) {
     topics:  DEFAULT_TOPICS,
   });
 
-  // Extension-sourced suggestions per category (ranked first in dropdown)
-  const [extensionOptions, setExtensionOptions] = useState<Record<Category, string[]>>({
-    authors: [],
-    sources: [],
-    places:  [],
-    topics:  [],
-  });
-
-  const [activeFilters, setActiveFilters] = useState<string[]>([]);
-  const [confirmingRemove, setConfirmingRemove] = useState<{ category: Category; tag: string } | null>(null);
+  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
   const [addingTo, setAddingTo] = useState<Category | null>(null);
 
   // Prioritize suggestions derived from the user's saved articles
   useEffect(() => {
     if (!user) {
-      setExtensionOptions({ authors: [], sources: [], places: [], topics: [] });
+      setInterestOptions({ authors: [], sources: [], places: [], topics: [] });
       return;
     }
 
@@ -140,7 +136,7 @@ export default function FollowingScreen({ user }: { user: User | null }) {
 
       const seeds = [...(bookmarkRes.data || []), ...(savedRes.data || [])] as SavedArticleSeed[];
       if (seeds.length === 0) {
-        setExtensionOptions({ authors: [], sources: [], places: [], topics: [] });
+        setInterestOptions({ authors: [], sources: [], places: [], topics: [] });
         return;
       }
 
@@ -167,12 +163,12 @@ export default function FollowingScreen({ user }: { user: User | null }) {
         );
       }
 
-      const savedAuthors = uniqStrings([
+      const savedAuthors = rankValues([
         ...seeds.map(seed => seed.author),
         ...matchedArticles.map(article => article.author),
       ]);
 
-      const savedSources = uniqStrings([
+      const savedSources = rankValues([
         ...seeds.map(seed => seed.source),
         ...matchedArticles.map(article => article.source_name),
       ]);
@@ -180,17 +176,17 @@ export default function FollowingScreen({ user }: { user: User | null }) {
       const savedTags = uniqStrings(matchedArticles.flatMap(article => article.tags));
       const seedTexts = seeds.map(seed => `${seed.headline || ''} ${seed.source || ''}`);
 
-      const savedPlaces = uniqStrings([
+      const savedPlaces = rankValues([
         ...savedTags.filter(isLikelyPlace),
         ...extractSavedPlaces(seedTexts),
       ]);
 
-      const savedTopics = uniqStrings([
+      const savedTopics = rankValues([
         ...savedTags.filter(tag => !isLikelyPlace(tag)),
         ...extractSavedTopics(seedTexts),
       ]);
 
-      setExtensionOptions({
+      setInterestOptions({
         authors: savedAuthors,
         sources: savedSources,
         places: savedPlaces,
@@ -198,29 +194,14 @@ export default function FollowingScreen({ user }: { user: User | null }) {
       });
 
       setSearchOptions(prev => ({
-        authors: uniqStrings([...prev.authors, ...savedAuthors]),
-        sources: uniqStrings([...prev.sources, ...savedSources]),
-        places: uniqStrings([...prev.places, ...savedPlaces]),
-        topics: uniqStrings([...prev.topics, ...savedTopics]),
+        authors: mergePriorityOptions(savedAuthors, prev.authors),
+        sources: mergePriorityOptions(savedSources, prev.sources),
+        places: mergePriorityOptions(savedPlaces, prev.places),
+        topics: mergePriorityOptions(savedTopics, prev.topics),
       }));
     };
 
     void loadSavedSuggestions();
-  }, [user]);
-
-  // Load following tags from DB
-  useEffect(() => {
-    if (!user) return;
-    supabase
-      .from('following_tags')
-      .select('category, tag')
-      .eq('user_id', user.id)
-      .then(({ data }) => {
-        if (!data || data.length === 0) return;
-        const grouped: Record<Category, string[]> = { authors: [], sources: [], places: [], topics: [] };
-        data.forEach(row => { if (row.category in grouped) grouped[row.category as Category].push(row.tag); });
-        setFollowing(grouped);
-      });
   }, [user]);
 
   // Load articles from articles table
@@ -262,23 +243,30 @@ export default function FollowingScreen({ user }: { user: User | null }) {
     [rawArticles]
   );
 
-  const toggleFilter = (tag: string) => {
-    setActiveFilters(prev =>
-      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
-    );
+  const toggleFilter = (category: Category, value: string) => {
+    setActiveFilters(prev => {
+      const exists = prev.some(filter => filter.category === category && filter.value === value);
+      return exists
+        ? prev.filter(filter => !(filter.category === category && filter.value === value))
+        : [...prev, { category, value }];
+    });
   };
 
-  const confirmRemove = (category: Category, tag: string) => {
-    setFollowing(prev => ({ ...prev, [category]: prev[category].filter(t => t !== tag) }));
-    setActiveFilters(prev => prev.filter(t => t !== tag));
-    setConfirmingRemove(null);
-    if (user) supabase.from('following_tags').delete().match({ user_id: user.id, category, tag }).then(() => {});
+  const removeFilter = (category: Category, value: string) => {
+    setActiveFilters(prev => prev.filter(filter => !(filter.category === category && filter.value === value)));
   };
 
   const addTag = (category: Category, val: string) => {
-    if (!val || following[category].includes(val)) return;
-    setFollowing(prev => ({ ...prev, [category]: [...prev[category], val] }));
-    if (user) supabase.from('following_tags').insert({ user_id: user.id, category, tag: val }).then(() => {});
+    if (!val) return;
+    setInterestOptions(prev => ({
+      ...prev,
+      [category]: uniqStrings([...prev[category], val]),
+    }));
+    setActiveFilters(prev =>
+      prev.some(filter => filter.category === category && filter.value === val)
+        ? prev
+        : [...prev, { category, value: val }]
+    );
     setAddingTo(null);
   };
 
@@ -330,31 +318,25 @@ export default function FollowingScreen({ user }: { user: User | null }) {
   }
 
   // ── Filter logic ──────────────────────────────────────────────
-  const allFollowedTags = [
-    ...following.authors,
-    ...following.sources,
-    ...following.places,
-    ...following.topics,
-  ];
+  const allInterestFilters: ActiveFilter[] = useMemo(
+    () => CATEGORIES.flatMap(({ key }) => interestOptions[key].map(value => ({ category: key, value }))),
+    [interestOptions]
+  );
 
-  const filtersToApply = activeFilters.length > 0
-    ? activeFilters
-    : allFollowedTags.length > 0
-      ? allFollowedTags
-      : null;
+  const filtersToApply = activeFilters.length > 0 ? activeFilters : allInterestFilters;
 
-  const filteredArticles = filtersToApply === null
-    ? articles
-    : articles.filter(a =>
-        filtersToApply.some(f => {
-          const fl = f.toLowerCase();
-          return (
-            a.author.toLowerCase().includes(fl) ||
-            a.source_name.toLowerCase().includes(fl) ||
-            a.tags.some(t => t.toLowerCase().includes(fl))
-          );
-        })
-      );
+  const filteredArticles = useMemo(() => {
+    if (filtersToApply.length === 0) return [];
+
+    return articles
+      .map(article => {
+        const score = filtersToApply.reduce((total, filter) => total + (articleMatchesFilter(article, filter) ? 1 : 0), 0);
+        return { article, score };
+      })
+      .filter(item => item.score > 0)
+      .sort((a, b) => b.score - a.score || new Date(b.article.published_at).getTime() - new Date(a.article.published_at).getTime())
+      .map(item => item.article);
+  }, [articles, filtersToApply]);
 
   // ── Browse By columns ─────────────────────────────────────────
   const topStories = articles.slice(0, 5);
@@ -402,22 +384,8 @@ export default function FollowingScreen({ user }: { user: User | null }) {
               </span>
 
               <div className="flex flex-wrap gap-2 flex-1 items-start">
-                {following[key].map(tag => {
-                  const isActive   = activeFilters.includes(tag);
-                  const confirming = confirmingRemove?.category === key && confirmingRemove?.tag === tag;
-
-                  if (confirming) {
-                    return (
-                      <span key={tag} className="flex items-center gap-2 border border-[#3e3232] px-2.5 py-1 bg-[#e5d8c8]">
-                        <span className="font-['Didot:Italic',sans-serif] italic text-[13px] text-[#3e3232]">
-                          unfollow "{tag}"?
-                        </span>
-                        <button onClick={() => confirmRemove(key, tag)} className="font-['Heading_Now_Trial:56_Bold',sans-serif] text-[11px] tracking-[1px] text-[#3e3232] underline hover:no-underline uppercase">yes</button>
-                        <button onClick={() => setConfirmingRemove(null)} className="font-['Heading_Now_Trial:56_Bold',sans-serif] text-[11px] tracking-[1px] text-[#3e3232] underline hover:no-underline uppercase">no</button>
-                      </span>
-                    );
-                  }
-
+                {interestOptions[key].map(tag => {
+                  const isActive = activeFilters.some(filter => filter.category === key && filter.value === tag);
                   return (
                     <span
                       key={tag}
@@ -426,14 +394,14 @@ export default function FollowingScreen({ user }: { user: User | null }) {
                       }`}
                     >
                       <button
-                        onClick={() => toggleFilter(tag)}
+                        onClick={() => toggleFilter(key, tag)}
                         className={`font-['Didot:Regular',sans-serif] text-[14px] leading-none ${isActive ? 'text-[#e5d8c8]' : 'text-[#3e3232]'}`}
                       >
                         {tag}
                       </button>
                       <button
-                        onClick={() => setConfirmingRemove({ category: key, tag })}
-                        aria-label={`Unfollow ${tag}`}
+                        onClick={() => removeFilter(key, tag)}
+                        aria-label={`Remove ${tag} from selected filters`}
                         className={`leading-none text-[15px] hover:opacity-50 ${isActive ? 'text-[#e5d8c8]' : 'text-[#3e3232]'}`}
                       >
                         ×
@@ -446,11 +414,11 @@ export default function FollowingScreen({ user }: { user: User | null }) {
                 {addingTo === key ? (
                   <SearchDropdown
                     options={searchOptions[key]}
-                    already={following[key]}
+                    already={interestOptions[key]}
                     placeholder={`Search ${label.toLowerCase()}...`}
                     onSelect={val => addTag(key, val)}
                     onClose={() => setAddingTo(null)}
-                    extensionSourcedOptions={extensionOptions[key]}
+                    extensionSourcedOptions={interestOptions[key]}
                   />
                 ) : (
                   <button
@@ -468,16 +436,16 @@ export default function FollowingScreen({ user }: { user: User | null }) {
         <div className="mt-3">
           {activeFilters.length > 0 ? (
             <p className="font-['Heading_Now_Trial:25_Medium',sans-serif] text-[12px] tracking-[1.5px] text-[#3e3232] uppercase">
-              Filtering by: {activeFilters.join(', ')} —{' '}
+              Filtering by: {activeFilters.map(filter => filter.value).join(', ')} —{' '}
               <button onClick={() => setActiveFilters([])} className="underline hover:no-underline">clear all</button>
             </p>
-          ) : allFollowedTags.length === 0 ? (
+          ) : allInterestFilters.length === 0 ? (
             <p className="font-['Didot:Italic',sans-serif] italic text-[13px] text-[#3e3232] opacity-60">
-              Showing all recent Pittsburgh news. Follow authors, sources, or topics above to personalize your feed.
+              Save a few articles first and this page will infer the topics, places, sources, and authors you care about.
             </p>
           ) : (
             <p className="font-['Didot:Italic',sans-serif] italic text-[13px] text-[#3e3232] opacity-60">
-              Showing all stories from everything you follow.
+              Showing stories related to the interests inferred from your saved articles. Click filters above to narrow the feed.
             </p>
           )}
         </div>
@@ -489,6 +457,8 @@ export default function FollowingScreen({ user }: { user: User | null }) {
 
         {loadingArticles ? (
           <p className="font-['Didot:Italic',sans-serif] italic text-[16px] text-[#3e3232] opacity-60">Loading articles...</p>
+        ) : allInterestFilters.length === 0 ? (
+          <p className="font-['Didot:Italic',sans-serif] italic text-[16px] text-[#3e3232] opacity-60">Save some articles and we’ll build this feed around what you read.</p>
         ) : filteredArticles.length === 0 ? (
           <p className="font-['Didot:Italic',sans-serif] italic text-[16px] text-[#3e3232] opacity-60">No stories match your current filters.</p>
         ) : (
@@ -554,12 +524,12 @@ export default function FollowingScreen({ user }: { user: User | null }) {
             <div>
               {topAuthors.map(([name, info], i) => (
                 <button key={name}
-                  onClick={() => addTag('authors', name)}
+                  onClick={() => toggleFilter('authors', name)}
                   className={`w-full text-left px-5 py-4 hover:bg-[rgba(62,50,50,0.07)] transition-colors ${i < topAuthors.length - 1 ? 'border-b-2 border-dashed border-[#3e3232]' : ''}`}>
                   <p className="font-['Didot:Regular',sans-serif] text-[16px] lg:text-[18px] text-[#3e3232] leading-snug mb-1">{name}</p>
                   <p className="font-['Heading_Now_Trial:25_Medium',sans-serif] text-[11px] tracking-[1.5px] text-[#3e3232] uppercase opacity-80">
                     {info.source.toUpperCase()} · {info.count} {info.count === 1 ? 'ARTICLE' : 'ARTICLES'}
-                    {following.authors.includes(name) && ' · FOLLOWING'}
+                    {interestOptions.authors.includes(name) && ' · INFERRED'}
                   </p>
                 </button>
               ))}
@@ -576,13 +546,13 @@ export default function FollowingScreen({ user }: { user: User | null }) {
             <div>
               {topSources.map(([name, info], i) => (
                 <button key={name}
-                  onClick={() => addTag('sources', name)}
+                  onClick={() => toggleFilter('sources', name)}
                   className={`w-full text-left px-5 py-4 hover:bg-[rgba(62,50,50,0.07)] transition-colors ${i < topSources.length - 1 ? 'border-b-2 border-dashed border-[#3e3232]' : ''}`}>
                   <p className="font-['Didot:Regular',sans-serif] text-[16px] lg:text-[18px] text-[#3e3232] leading-snug mb-1">{name}</p>
                   <p className="font-['Heading_Now_Trial:25_Medium',sans-serif] text-[11px] tracking-[1.5px] text-[#3e3232] uppercase opacity-80">
                     {info.count} {info.count === 1 ? 'ARTICLE' : 'ARTICLES'}
                     {info.nonprofit && ' · NON-PROFIT'}
-                    {following.sources.includes(name) && ' · FOLLOWING'}
+                    {interestOptions.sources.includes(name) && ' · INFERRED'}
                   </p>
                 </button>
               ))}
@@ -738,10 +708,66 @@ function uniqStrings(values: Array<string | null | undefined>): string[] {
   return [...new Set(values.map(value => (value || '').trim()).filter(Boolean))].sort();
 }
 
+function rankValues(values: Array<string | null | undefined>): string[] {
+  const counts = new Map<string, { label: string; count: number }>();
+
+  values.forEach(value => {
+    const label = (value || '').trim();
+    if (!label) return;
+    const key = label.toLowerCase();
+    const existing = counts.get(key);
+    if (existing) {
+      existing.count += 1;
+      return;
+    }
+    counts.set(key, { label, count: 1 });
+  });
+
+  return [...counts.values()]
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+    .map(entry => entry.label);
+}
+
+function mergePriorityOptions(priority: string[], rest: string[]): string[] {
+  const seen = new Set<string>();
+  const merged: string[] = [];
+
+  [...priority, ...rest].forEach(value => {
+    const label = (value || '').trim();
+    if (!label) return;
+    const key = label.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    merged.push(label);
+  });
+
+  return merged;
+}
+
 function chunk<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];
   for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
   return chunks;
+}
+
+function articleMatchesFilter(article: Article, filter: ActiveFilter): boolean {
+  const needle = filter.value.toLowerCase();
+
+  if (filter.category === 'authors') {
+    return article.author.toLowerCase().includes(needle);
+  }
+
+  if (filter.category === 'sources') {
+    return article.source_name.toLowerCase().includes(needle);
+  }
+
+  const haystacks = [
+    article.headline,
+    article.excerpt,
+    ...article.tags,
+  ].map(value => value.toLowerCase());
+
+  return haystacks.some(value => value.includes(needle));
 }
 
 function isLikelyPlace(value: string): boolean {
