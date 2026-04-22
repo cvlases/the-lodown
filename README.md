@@ -1,7 +1,7 @@
 
-  # Build The LoDown Website
+  # The LoDown Website
 
-  This is a code bundle for Build The LoDown Website. The original project is available at https://www.figma.com/design/Hwz5Q4gWSxnjUwejYFRVVN/Build-The-LoDown-Website.
+  This is a code bundle for The LoDown Website. 
 
   ## Running the code
 
