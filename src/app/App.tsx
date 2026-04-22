@@ -59,7 +59,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-[#e5d8c8] overflow-hidden">
+    <div className="flex flex-col h-screen bg-[#e5d8c8]">
       <Masthead
         activeScreen={activeScreen}
         onNavClick={handleNavClick}
@@ -69,8 +69,13 @@ export default function App() {
       />
 
       <div
-        className="flex-1 overflow-y-auto"
-        style={{ opacity: isTransitioning ? 0 : 1, transition: 'opacity 150ms ease-in-out' }}
+        className="flex-1 min-h-0 overflow-y-auto"
+        style={{
+          opacity: isTransitioning ? 0 : 1,
+          transition: 'opacity 150ms ease-in-out, filter 200ms ease-in-out',
+          filter: isLoginOpen && !user ? 'blur(4px)' : 'none',
+        }}
+        onClick={() => isLoginOpen && setIsLoginOpen(false)}
       >
         {activeScreen === 'browse'    && <BrowseScreen onSubmitClick={() => handleNavClick('submit')} />}
         {activeScreen === 'saved'     && <SavedScreen user={user} />}

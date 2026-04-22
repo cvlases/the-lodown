@@ -63,16 +63,17 @@ export default function Masthead({ activeScreen, onNavClick, isLoginOpen, setIsL
 
   const handleAuth = async () => {
     if (authMode === 'signup' && !name.trim()) { setAuthError('Please enter your name.'); return; }
-    if (!email || !password) { setAuthError('Please fill in all fields.'); return; }
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password) { setAuthError('Please fill in all fields.'); return; }
     setAuthLoading(true);
     setAuthError('');
 
     if (authMode === 'signin') {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password });
       if (error) setAuthError(error.message);
     } else {
       const { error } = await supabase.auth.signUp({
-        email,
+        email: trimmedEmail,
         password,
         options: { data: { full_name: name.trim() } },
       });
@@ -87,7 +88,7 @@ export default function Masthead({ activeScreen, onNavClick, isLoginOpen, setIsL
   };
 
   return (
-    <div className="relative flex-shrink-0 bg-[#e5d8c8]" style={{ perspective: '1200px' }}>
+    <div className="relative z-10 flex-shrink-0 bg-[#e5d8c8]" style={{ perspective: '1200px' }}>
 
       {/* ── Nameplate ─────────────────────────────────────────────── */}
       <div className="relative z-20 bg-[#e5d8c8]">
@@ -145,16 +146,14 @@ export default function Masthead({ activeScreen, onNavClick, isLoginOpen, setIsL
       </div>
 
       {/* ── Auth modal ─────────────────────────────────────────────── */}
-      {/* Fixed overlay: blurs the page, centers the form */}
+      {/* Dropdown: appears below the nav bar, content area blurs via App.tsx */}
       {isLoginOpen && !user && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center"
-          style={{ backdropFilter: 'blur(6px)', backgroundColor: 'rgba(62,50,50,0.35)' }}
+          className="absolute left-0 right-0 top-full z-[100] flex justify-center px-4 pt-3 pb-8"
           onClick={() => setIsLoginOpen(false)}
         >
-          {/* Stop clicks inside the form from closing the modal */}
           <div
-            className="bg-[#e5d8c8] border-4 border-[#3e3232] p-8 w-full max-w-md mx-4"
+            className="bg-[#e5d8c8] border-4 border-[#3e3232] p-8 w-full max-w-md shadow-2xl"
             onClick={e => e.stopPropagation()}
           >
             {/* Close button */}
@@ -196,6 +195,7 @@ export default function Masthead({ activeScreen, onNavClick, isLoginOpen, setIsL
                     onKeyDown={e => e.key === 'Enter' && handleAuth()}
                     placeholder="Your name"
                     autoFocus
+                    autoComplete="name"
                     className="w-full border-2 border-[#3e3232] bg-[#e5d8c8] px-3 py-2 font-['Didot:Regular',sans-serif] text-[14px] text-[#3e3232] focus:outline-none focus:ring-2 focus:ring-[#3e3232]"
                   />
                 </div>
@@ -209,6 +209,7 @@ export default function Masthead({ activeScreen, onNavClick, isLoginOpen, setIsL
                   onKeyDown={e => e.key === 'Enter' && handleAuth()}
                   placeholder="your@email.com"
                   autoFocus={authMode === 'signin'}
+                  autoComplete="email"
                   className="w-full border-2 border-[#3e3232] bg-[#e5d8c8] px-3 py-2 font-['Didot:Regular',sans-serif] text-[14px] text-[#3e3232] focus:outline-none focus:ring-2 focus:ring-[#3e3232]"
                 />
               </div>
@@ -220,6 +221,7 @@ export default function Masthead({ activeScreen, onNavClick, isLoginOpen, setIsL
                   onChange={e => setPassword(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleAuth()}
                   placeholder="••••••••"
+                  autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'}
                   className="w-full border-2 border-[#3e3232] bg-[#e5d8c8] px-3 py-2 font-['Didot:Regular',sans-serif] text-[14px] text-[#3e3232] focus:outline-none focus:ring-2 focus:ring-[#3e3232]"
                 />
               </div>
