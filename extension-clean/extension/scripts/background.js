@@ -289,30 +289,9 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
   if (msg.type === "SAVE_BOOKMARK") {
     chrome.storage.local.get(["authToken"]).then(function(d) {
       if (!d.authToken) { sendResponse({success:false,error:"Sign in on the website first"}); return; }
-      
-      // Extract user_id from JWT token
-      var userId = null;
-      try {
-        var parts = d.authToken.split(".");
-        if (parts.length === 3) {
-          var payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-          while (payload.length % 4) payload += "=";
-          var decoded = JSON.parse(atob(payload));
-          userId = decoded.sub;
-        }
-      } catch(e) {}
-      
-      if (!userId) {
-        sendResponse({success:false,error:"Could not extract user ID from token"});
-        return;
-      }
-      
       sbAuthPost("extension_bookmarks", {
-        user_id: userId,
-        headline: msg.article.title || "", 
-        source: msg.article.sourceName || null,
-        author: msg.article.author || null, 
-        url: msg.article.link || msg.article.url || null
+        headline: msg.article.title, source: msg.article.sourceName||null,
+        author: msg.article.author||null, url: msg.article.link || msg.article.url || null
       }, d.authToken).then(function(r){ sendResponse({success:r.ok||r.status===409}); })
         .catch(function(e){ sendResponse({success:false,error:e.message}); });
     }); return true;

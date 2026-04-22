@@ -4,22 +4,6 @@
  * without a separate login step inside the extension.
  */
 (function () {
-  function getSessionFromStorageValue(raw) {
-    if (!raw) return null;
-    try {
-      var data = JSON.parse(raw);
-      if (data && data.access_token) return data;
-      if (data && data.currentSession && data.currentSession.access_token) return data.currentSession;
-      if (data && data.session && data.session.access_token) return data.session;
-      if (Array.isArray(data)) {
-        for (var i = 0; i < data.length; i++) {
-          if (data[i] && data[i].access_token) return data[i];
-        }
-      }
-    } catch (e) {}
-    return null;
-  }
-
   function isExtensionAlive() {
     try { return !!chrome.runtime && !!chrome.runtime.id; }
     catch (e) { return false; }
@@ -44,10 +28,12 @@
       });
       if (sessionKey) {
         var raw = localStorage.getItem(sessionKey);
-        var session = getSessionFromStorageValue(raw);
-        if (session && session.access_token) {
-          safeSend({ type: 'SYNC_AUTH', token: session.access_token, email: (session.user && session.user.email) || null });
-          return;
+        if (raw) {
+          var data = JSON.parse(raw);
+          if (data && data.access_token) {
+            safeSend({ type: 'SYNC_AUTH', token: data.access_token, email: (data.user && data.user.email) || null });
+            return;
+          }
         }
       }
       safeSend({ type: 'SYNC_AUTH', token: null, email: null });
