@@ -258,9 +258,64 @@ function getFeed(locs, sources) {
   return searchDDG(cities.join(" ") + " news (" + sc + ")", sources);
 }
 
+/* ===== TRACK ARTICLE INTERACTIONS FOR FOLLOWING PAGE ===== */
+
+function trackArticleInteraction(article) {
+  // Extract topics from article description/text
+  var keywords = extractKeywords((article.description || "") + " " + (article.title || ""), 5);
+  
+  // Get or initialize stored data
+  var stored = localStorage.getItem('thelodown_extension_topics');
+  var data = {};
+  try {
+    data = stored ? JSON.parse(stored) : {};
+  } catch(e) {
+    data = {};
+  }
+  
+  // Initialize arrays if missing
+  if (!Array.isArray(data.topics)) data.topics = [];
+  if (!Array.isArray(data.authors)) data.authors = [];
+  if (!Array.isArray(data.sources)) data.sources = [];
+  if (!Array.isArray(data.places)) data.places = [];
+  
+  // Add unique values
+  if (article.author) {
+    article.author = String(article.author).trim();
+    if (article.author && data.authors.indexOf(article.author) === -1) {
+      data.authors.push(article.author);
+    }
+  }
+  
+  if (article.sourceName) {
+    article.sourceName = String(article.sourceName).trim();
+    if (article.sourceName && data.sources.indexOf(article.sourceName) === -1) {
+      data.sources.push(article.sourceName);
+    }
+  }
+  
+  keywords.forEach(function(kw) {
+    if (data.topics.indexOf(kw) === -1) {
+      data.topics.push(kw);
+    }
+  });
+  
+  // Store back to localStorage
+  try {
+    localStorage.setItem('thelodown_extension_topics', JSON.stringify(data));
+  } catch(e) {
+    console.error('Failed to store article interaction:', e);
+  }
+}
+
 /* ===== MESSAGE HANDLER ===== */
 
 chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
+  if (msg.type === "TRACK_ARTICLE") {
+    trackArticleInteraction(msg.article);
+    sendResponse({success: true});
+    return;
+  }
   if (msg.type === "CHECK_RESISTANCE") {
     loadResistanceList().then(function(list) {
       var r = isResisted(msg.url, list);

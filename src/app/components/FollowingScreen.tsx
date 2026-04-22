@@ -41,6 +41,36 @@ const CATEGORIES: { key: Category; label: string }[] = [
   { key: 'topics',  label: 'TOPICS'  },
 ];
 
+// ── Default filler suggestions for new users (from Pittsburgh news coverage) ──
+
+const DEFAULT_TOPICS = [
+  'Local Politics',
+  'Government',
+  'Business',
+  'Sports',
+  'Education',
+  'Public Safety',
+  'Environment',
+  'Arts & Culture',
+  'Opinion',
+  'Investigations',
+];
+
+const DEFAULT_PLACES = [
+  'Pittsburgh',
+  'Allegheny County',
+  'Downtown Pittsburgh',
+  'North Shore',
+  'Strip District',
+  'Oakland',
+  'South Side',
+  'East Pittsburgh',
+  'Point Breeze',
+  'Lawrenceville',
+  'Pennsylvania',
+  'Western Pennsylvania',
+];
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function FollowingScreen({ user }: { user: User | null }) {
@@ -52,8 +82,8 @@ export default function FollowingScreen({ user }: { user: User | null }) {
   const [searchOptions, setSearchOptions] = useState<Record<Category, string[]>>({
     authors: [],
     sources: SOURCES.map(s => s.name), // from local data file
-    places:  [],
-    topics:  [],
+    places:  DEFAULT_PLACES,
+    topics:  DEFAULT_TOPICS,
   });
 
   // Extension-sourced suggestions per category (ranked first in dropdown)
