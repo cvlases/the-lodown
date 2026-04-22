@@ -531,11 +531,13 @@ function formatDate(iso: string): string {
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mb-4">
-      <h2 className="font-['Heading_Now_Trial:47_Extrabold',sans-serif] text-[24px] lg:text-[30px] text-[#3e3232] tracking-[4px] uppercase">
+    <div className="mb-5">
+      <div className="h-[5px] bg-[#3e3232]" />
+      <div className="h-[1.5px] bg-[#3e3232] mt-[3px]" />
+      <h2 className="font-['Heading_Now_Trial:47_Extrabold',sans-serif] text-[24px] lg:text-[30px] text-[#3e3232] tracking-[4px] uppercase py-2">
         {children}
       </h2>
-      <div className="h-1.5 border-t-4 border-b-2 border-[#3e3232] mt-2" />
+      <div className="h-[1.5px] bg-[#3e3232]" />
     </div>
   );
 }

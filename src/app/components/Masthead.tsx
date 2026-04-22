@@ -82,41 +82,59 @@ export default function Masthead({ activeScreen, onNavClick, isLoginOpen, setIsL
   return (
     <div className="relative flex-shrink-0 bg-[#e5d8c8]" style={{ perspective: '1200px' }}>
 
-      {/* ── Title bar ─────────────────────────────────────────────── */}
+      {/* ── Nameplate ─────────────────────────────────────────────── */}
       <div className="relative z-20 bg-[#e5d8c8]">
-        <div className="h-2 border-t-4 border-b-4 border-[#3e3232] mx-8 mt-4" />
 
-        <div className="text-center py-6 relative">
-          <h1 className="font-['Heading_Now_Trial:16_Bold',sans-serif] text-[#3e3232] text-[60px] sm:text-[80px] lg:text-[100px] tracking-[6px] lg:tracking-[10px] uppercase leading-[1]">
-            The LoDown
-          </h1>
+        {/* Top thick rule */}
+        <div className="h-[6px] bg-[#3e3232] mt-3 mx-6" />
+        <div className="h-[1.5px] bg-[#3e3232] mt-[3px] mx-6" />
 
-          {/* Auth controls — top right of title */}
-          <div className="absolute right-8 top-1/2 -translate-y-1/2 z-30 flex items-center gap-3">
+        {/* Folio line — date · location · auth */}
+        <div className="flex items-center justify-between px-6 py-1.5">
+          <span className="font-['Heading_Now_Trial:25_Medium',sans-serif] text-[10px] lg:text-[11px] tracking-[2px] text-[#3e3232] uppercase">
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          </span>
+          <span className="font-['Heading_Now_Trial:25_Medium',sans-serif] text-[10px] lg:text-[11px] tracking-[2px] text-[#3e3232] uppercase hidden sm:block">
+            Pittsburgh, PA · Local News
+          </span>
+          <div className="flex items-center gap-3">
             {user ? (
               <>
-                <span className="font-['Didot:Italic',sans-serif] italic text-[14px] text-[#3e3232] hidden lg:inline">
+                <span className="font-['Didot:Italic',sans-serif] italic text-[11px] text-[#3e3232] hidden lg:inline opacity-70">
                   {user.email}
                 </span>
-                <button
-                  onClick={handleSignOut}
-                  className="font-['Didot:Regular',sans-serif] text-[16px] lg:text-[20px] text-[#3e3232] underline hover:no-underline"
-                >
+                <button onClick={handleSignOut} className="font-['Heading_Now_Trial:25_Medium',sans-serif] text-[10px] lg:text-[11px] tracking-[2px] text-[#3e3232] uppercase underline hover:no-underline">
                   Sign Out
                 </button>
               </>
             ) : (
-              <button
-                onClick={() => setIsLoginOpen(!isLoginOpen)}
-                className="font-['Didot:Regular',sans-serif] text-[16px] lg:text-[20px] text-[#3e3232] underline hover:no-underline"
-              >
+              <button onClick={() => setIsLoginOpen(!isLoginOpen)} className="font-['Heading_Now_Trial:25_Medium',sans-serif] text-[10px] lg:text-[11px] tracking-[2px] text-[#3e3232] uppercase underline hover:no-underline">
                 {isLoginOpen ? 'Close' : 'Sign In'}
               </button>
             )}
           </div>
         </div>
 
-        <div className="h-2 border-t-4 border-b-4 border-[#3e3232] mx-8" />
+        <div className="h-[1.5px] bg-[#3e3232] mx-6" />
+
+        {/* Nameplate */}
+        <div className="text-center pt-3 pb-1">
+          <h1 className="font-['Heading_Now_Trial:16_Bold',sans-serif] text-[#3e3232] text-[60px] sm:text-[80px] lg:text-[110px] tracking-[4px] lg:tracking-[8px] uppercase leading-none">
+            The LoDown
+          </h1>
+        </div>
+
+        {/* Tagline */}
+        <div className="text-center pb-3">
+          <p className="font-['Didot:Italic',sans-serif] italic text-[13px] lg:text-[15px] text-[#3e3232] tracking-[1px] opacity-70">
+            Big news, closer to home.
+          </p>
+        </div>
+
+        {/* Bottom thick rule */}
+        <div className="h-[1.5px] bg-[#3e3232] mx-6" />
+        <div className="h-[5px] bg-[#3e3232] mt-[3px] mx-6" />
+
       </div>
 
       {/* ── Auth modal ─────────────────────────────────────────────── */}
