@@ -27,6 +27,13 @@ interface Article {
   tags: string[];
 }
 
+interface SavedArticleSeed {
+  headline: string | null;
+  source: string | null;
+  author: string | null;
+  url: string | null;
+}
+
 const EMPTY_FOLLOWING: Record<Category, string[]> = {
   authors: [],
   sources: [],
@@ -71,6 +78,17 @@ const DEFAULT_PLACES = [
   'Western Pennsylvania',
 ];
 
+const PLACE_HINTS = [
+  ...DEFAULT_PLACES,
+  ...SOURCES.flatMap(source => [source.city, source.state]),
+];
+
+const TOPIC_STOP_WORDS = new Set([
+  'the', 'and', 'for', 'with', 'from', 'that', 'this', 'into', 'your', 'about',
+  'after', 'before', 'while', 'under', 'over', 'local', 'news', 'story', 'stories',
+  'article', 'articles', 'county', 'city', 'state',
+]);
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function FollowingScreen({ user }: { user: User | null }) {
@@ -98,37 +116,97 @@ export default function FollowingScreen({ user }: { user: User | null }) {
   const [confirmingRemove, setConfirmingRemove] = useState<{ category: Category; tag: string } | null>(null);
   const [addingTo, setAddingTo] = useState<Category | null>(null);
 
-  // Fetch extension-sourced suggestions from localStorage
+  // Prioritize suggestions derived from the user's saved articles
   useEffect(() => {
-    const fetchExtensionTopics = () => {
-      try {
-        const stored = localStorage.getItem('thelodown_extension_topics');
-        if (!stored) return;
+    if (!user) {
+      setExtensionOptions({ authors: [], sources: [], places: [], topics: [] });
+      return;
+    }
 
-        const data = JSON.parse(stored);
-        setExtensionOptions({
-          authors: Array.isArray(data.authors) ? data.authors : [],
-          sources: Array.isArray(data.sources) ? data.sources : [],
-          places:  Array.isArray(data.places) ? data.places : [],
-          topics:  Array.isArray(data.topics) ? data.topics : [],
-        });
-      } catch (err) {
-        console.error('Failed to parse extension topics from localStorage:', err);
+    const loadSavedSuggestions = async () => {
+      const [bookmarkRes, savedRes] = await Promise.all([
+        supabase
+          .from('extension_bookmarks')
+          .select('headline, source, author, url')
+          .eq('user_id', user.id)
+          .order('saved_at', { ascending: false })
+          .limit(100),
+        supabase
+          .from('saved_articles')
+          .select('headline, source, author, url')
+          .order('saved_at', { ascending: false })
+          .limit(100),
+      ]);
+
+      const seeds = [...(bookmarkRes.data || []), ...(savedRes.data || [])] as SavedArticleSeed[];
+      if (seeds.length === 0) {
+        setExtensionOptions({ authors: [], sources: [], places: [], topics: [] });
+        return;
       }
+
+      const savedUrls = uniqStrings(seeds.map(seed => normalizeUrl(seed.url)));
+      let matchedArticles: Array<{ author: string; headline: string; tags: string[]; source_name: string }> = [];
+
+      if (savedUrls.length > 0) {
+        const articleResults = await Promise.all(
+          chunk(savedUrls, 50).map(urls =>
+            supabase
+              .from('articles')
+              .select('author, headline, tags, source_id, url')
+              .in('url', urls)
+          )
+        );
+
+        matchedArticles = articleResults.flatMap(({ data }) =>
+          (data || []).map(article => ({
+            author: article.author || '',
+            headline: article.headline || '',
+            tags: article.tags || [],
+            source_name: SOURCES.find(source => source.id === article.source_id)?.name || '',
+          }))
+        );
+      }
+
+      const savedAuthors = uniqStrings([
+        ...seeds.map(seed => seed.author),
+        ...matchedArticles.map(article => article.author),
+      ]);
+
+      const savedSources = uniqStrings([
+        ...seeds.map(seed => seed.source),
+        ...matchedArticles.map(article => article.source_name),
+      ]);
+
+      const savedTags = uniqStrings(matchedArticles.flatMap(article => article.tags));
+      const seedTexts = seeds.map(seed => `${seed.headline || ''} ${seed.source || ''}`);
+
+      const savedPlaces = uniqStrings([
+        ...savedTags.filter(isLikelyPlace),
+        ...extractSavedPlaces(seedTexts),
+      ]);
+
+      const savedTopics = uniqStrings([
+        ...savedTags.filter(tag => !isLikelyPlace(tag)),
+        ...extractSavedTopics(seedTexts),
+      ]);
+
+      setExtensionOptions({
+        authors: savedAuthors,
+        sources: savedSources,
+        places: savedPlaces,
+        topics: savedTopics,
+      });
+
+      setSearchOptions(prev => ({
+        authors: uniqStrings([...prev.authors, ...savedAuthors]),
+        sources: uniqStrings([...prev.sources, ...savedSources]),
+        places: uniqStrings([...prev.places, ...savedPlaces]),
+        topics: uniqStrings([...prev.topics, ...savedTopics]),
+      }));
     };
 
-    // Fetch on mount and listen for storage changes
-    fetchExtensionTopics();
-    window.addEventListener('storage', fetchExtensionTopics);
-    
-    // Also check periodically in case another tab updates it
-    const interval = setInterval(fetchExtensionTopics, 1000);
-
-    return () => {
-      window.removeEventListener('storage', fetchExtensionTopics);
-      clearInterval(interval);
-    };
-  }, []);
+    void loadSavedSuggestions();
+  }, [user]);
 
   // Load following tags from DB
   useEffect(() => {
@@ -174,35 +252,6 @@ export default function FollowingScreen({ user }: { user: User | null }) {
         setLoadingArticles(false);
       });
   }, []);
-
-  // Populate search options from saved/bookmarked articles (personalization)
-  useEffect(() => {
-    if (!user) return;
-    supabase
-      .from('extension_bookmarks')
-      .select('author, source')
-      .eq('user_id', user.id)
-      .order('saved_at', { ascending: false })
-      .limit(50)
-      .then(({ data }) => {
-        if (!data || data.length === 0) return;
-
-        const authors = [...new Set(
-          data.map(r => r.author).filter(Boolean)
-        )].sort() as string[];
-
-        const sources = [...new Set(
-          data.map(r => r.source).filter(Boolean)
-        )].sort() as string[];
-
-        setSearchOptions(prev => ({
-          authors: [...new Set([...prev.authors, ...authors])].sort(),
-          sources: [...new Set([...prev.sources, ...sources])].sort(),
-          topics:  prev.topics,
-          places:  prev.places,
-        }));
-      });
-  }, [user]);
 
   // Join articles with source display names from local data
   const articles: Article[] = useMemo(() =>
@@ -671,6 +720,73 @@ function formatDate(iso: string): string {
   try {
     return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   } catch { return ''; }
+}
+
+function normalizeUrl(url: string | null | undefined): string {
+  if (!url) return '';
+  try {
+    const parsed = new URL(url);
+    parsed.hash = '';
+    const normalized = parsed.toString();
+    return normalized.endsWith('/') ? normalized.slice(0, -1) : normalized;
+  } catch {
+    return url;
+  }
+}
+
+function uniqStrings(values: Array<string | null | undefined>): string[] {
+  return [...new Set(values.map(value => (value || '').trim()).filter(Boolean))].sort();
+}
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
+  return chunks;
+}
+
+function isLikelyPlace(value: string): boolean {
+  const lower = value.toLowerCase();
+  return PLACE_HINTS.some(place => place.toLowerCase() === lower)
+    || lower.includes('pittsburgh')
+    || lower.includes('allegheny')
+    || lower.includes('county')
+    || lower.includes('district')
+    || lower.includes('neighborhood')
+    || lower.includes('township')
+    || lower.includes('borough')
+    || lower.includes('pennsylvania');
+}
+
+function extractSavedPlaces(texts: string[]): string[] {
+  const matches = new Set<string>();
+  texts.forEach(text => {
+    PLACE_HINTS.forEach(place => {
+      const escaped = place.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      if (new RegExp(`\\b${escaped}\\b`, 'i').test(text)) matches.add(place);
+    });
+  });
+  return [...matches].sort();
+}
+
+function extractSavedTopics(texts: string[]): string[] {
+  const counts = new Map<string, number>();
+
+  texts.forEach(text => {
+    text
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(word => word.length >= 4)
+      .filter(word => !TOPIC_STOP_WORDS.has(word))
+      .forEach(word => {
+        counts.set(word, (counts.get(word) || 0) + 1);
+      });
+  });
+
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 12)
+    .map(([topic]) => topic.replace(/\b\w/g, char => char.toUpperCase()));
 }
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
