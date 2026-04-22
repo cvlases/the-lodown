@@ -166,31 +166,16 @@ function renderArticles(items){
       '<div class="card-author">'+esc(item.sourceName||"")+(dateStr?' &middot; '+dateStr:'')+'</div>'+
       '<div class="card-snippet">'+esc(truncate(item.description||"",140))+'</div>'+
       '<div class="card-actions">'+
-        '<a class="btn-read" href="'+escA(item.link)+'" target="_blank" rel="noopener noreferrer" data-idx="'+idx+'">Read All About It <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12"><path d="M3 9L9 3M9 3H4M9 3V8"/></svg></a>'+
+        '<a class="btn-read" href="'+escA(item.link)+'" target="_blank" rel="noopener noreferrer">Read All About It <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12"><path d="M3 9L9 3M9 3H4M9 3V8"/></svg></a>'+
         '<button class="btn-icon btn-bookmark" title="Save to account" data-idx="'+idx+'"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14"><path d="M3 2h8v11l-4-3-4 3V2z"/></svg></button>'+
       '</div></div>';
   }).join("");
-
-  /* Track article reads */
-  c.querySelectorAll(".btn-read").forEach(function(link){
-    link.addEventListener("click",function(){
-      var i=parseInt(link.getAttribute("data-idx"));
-      var item=items[i];
-      if(item){
-        send({type:"TRACK_ARTICLE",article:item});
-      }
-    });
-  });
 
   /* Bind bookmark buttons */
   c.querySelectorAll(".btn-bookmark").forEach(function(btn){
     btn.addEventListener("click",function(){
       var i=parseInt(btn.getAttribute("data-idx"));
       var item=items[i];if(!item)return;
-      
-      /* Track article on bookmark */
-      send({type:"TRACK_ARTICLE",article:item});
-      
       btn.style.opacity="0.5";btn.disabled=true;
       send({type:"SAVE_BOOKMARK",article:item},function(r){
         if(r&&r.success){btn.innerHTML='<svg viewBox="0 0 14 14" fill="currentColor" width="14" height="14"><path d="M3 2h8v11l-4-3-4 3V2z"/></svg>';btn.title="Saved!";}

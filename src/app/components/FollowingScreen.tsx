@@ -175,15 +175,15 @@ export default function FollowingScreen({ user }: { user: User | null }) {
       });
   }, []);
 
-  // Populate search options from the user's extension-tracked article visits
+  // Populate search options from saved/bookmarked articles (personalization)
   useEffect(() => {
     if (!user) return;
     supabase
-      .from('article_visits')
-      .select('author, source, keywords')
+      .from('extension_bookmarks')
+      .select('author, source')
       .eq('user_id', user.id)
-      .order('visited_at', { ascending: false })
-      .limit(200)
+      .order('saved_at', { ascending: false })
+      .limit(50)
       .then(({ data }) => {
         if (!data || data.length === 0) return;
 
@@ -195,15 +195,11 @@ export default function FollowingScreen({ user }: { user: User | null }) {
           data.map(r => r.source).filter(Boolean)
         )].sort() as string[];
 
-        const keywords = [...new Set(
-          data.flatMap(r => (r.keywords as string[]) || []).filter(Boolean)
-        )].sort();
-
         setSearchOptions(prev => ({
           authors: [...new Set([...prev.authors, ...authors])].sort(),
           sources: [...new Set([...prev.sources, ...sources])].sort(),
-          topics:  [...new Set([...prev.topics,  ...keywords])].sort(),
-          places:  [...new Set([...prev.places,  ...keywords])].sort(),
+          topics:  prev.topics,
+          places:  prev.places,
         }));
       });
   }, [user]);
