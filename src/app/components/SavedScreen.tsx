@@ -27,6 +27,15 @@ interface Article {
   url: string | null;
 }
 
+interface ExtBookmark {
+  id: string;
+  headline: string;
+  source: string | null;
+  author: string | null;
+  url: string;
+  saved_at: string;
+}
+
 interface Props { user: User | null; }
 
 export default function SavedScreen({ user }: Props) {
@@ -35,6 +44,10 @@ export default function SavedScreen({ user }: Props) {
   const [articles, setArticles]           = useState<Article[]>([]);
   const [loading, setLoading]             = useState(false);
   const [dbError, setDbError]             = useState<string | null>(null);
+
+  // Extension bookmarks
+  const [extBookmarks, setExtBookmarks]   = useState<ExtBookmark[]>([]);
+  const [extView, setExtView]             = useState(false);
 
   // Folder creation
   const [addingFolder, setAddingFolder]   = useState(false);
@@ -48,7 +61,7 @@ export default function SavedScreen({ user }: Props) {
   // Delete confirmation
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
-  // Load folders when user is available
+  // Load folders and extension bookmarks when user is available
   useEffect(() => {
     if (!user) return;
     setLoading(true);
@@ -66,6 +79,14 @@ export default function SavedScreen({ user }: Props) {
         }
         setLoading(false);
       });
+
+    supabase
+      .from('extension_bookmarks')
+      .select('id, headline, source, author, url, saved_at')
+      .eq('user_id', user.id)
+      .order('saved_at', { ascending: false })
+      .limit(100)
+      .then(({ data }) => { if (data) setExtBookmarks(data as ExtBookmark[]); });
   }, [user]);
 
   // Load articles when a folder is selected
@@ -164,6 +185,53 @@ export default function SavedScreen({ user }: Props) {
               Sign in from the top right corner to get started
             </p>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Extension bookmarks view ────────────────────────────────────
+  if (extView) {
+    return (
+      <div className="p-4 lg:p-8">
+        <button
+          onClick={() => setExtView(false)}
+          className="font-['Heading_Now_Trial:25_Medium',sans-serif] text-[20px] lg:text-[28px] text-[#3e3232] tracking-[2.8px] uppercase hover:underline mb-6 block"
+        >
+          ← BACK TO FOLDERS
+        </button>
+
+        <div className="mb-6">
+          <div className="h-[5px] bg-[#3e3232]" />
+          <div className="h-[1.5px] bg-[#3e3232] mt-[3px]" />
+          <h2 className="font-['Heading_Now_Trial:47_Extrabold',sans-serif] text-[24px] lg:text-[30px] text-[#3e3232] tracking-[4px] uppercase py-2">
+            From Extension
+          </h2>
+          <div className="h-[1.5px] bg-[#3e3232]" />
+        </div>
+
+        <div className="border-4 border-[#3e3232] p-4 lg:p-6">
+          {extBookmarks.length === 0 ? (
+            <p className="font-['Didot:Italic',sans-serif] italic text-[16px] text-[#3e3232] opacity-60 text-center py-8">
+              No bookmarks saved from the extension yet. Use the bookmark button in the extension popup to save articles here.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {extBookmarks.map(bk => (
+                <div key={bk.id} className="flex items-center justify-between p-3 border-2 border-[#3e3232] bg-[#e5d8c8]">
+                  <div className="flex-1 mr-4">
+                    <p className="font-['Didot:Regular',sans-serif] text-[18px] lg:text-[22px] text-[#3e3232]">{bk.headline}</p>
+                    <p className="font-['Heading_Now_Trial:25_Medium',sans-serif] text-[11px] tracking-[1px] text-[#3e3232] uppercase opacity-60 mt-0.5">
+                      {[bk.author, bk.source].filter(Boolean).join(' · ')}
+                    </p>
+                  </div>
+                  <a href={bk.url} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 hover:opacity-70">
+                    <img src={imgForward} alt="Open" className="w-[24px] h-[24px] object-contain" />
+                  </a>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -271,6 +339,26 @@ export default function SavedScreen({ user }: Props) {
         <p className="font-['Didot:Italic',sans-serif] italic text-[16px] text-[#3e3232] opacity-60">Loading...</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+          {/* Extension bookmarks card */}
+          <button
+            onClick={() => setExtView(true)}
+            className="relative h-[300px] border-4 border-[#3e3232] p-4 lg:p-6 hover:bg-[#d4c5b5] transition-colors group text-left"
+          >
+            <p className="font-['Heading_Now_Trial:25_Medium',sans-serif] text-[11px] tracking-[2px] text-[#3e3232] uppercase opacity-60 mb-2">
+              Extension Saves
+            </p>
+            <h3 className="font-['Heading_Now_Trial:25_Medium',sans-serif] text-[28px] lg:text-[36px] text-[#3e3232] uppercase mb-4">
+              FROM EXTENSION
+            </h3>
+            <div className="h-[2px] bg-[#3e3232] my-3" />
+            <p className="font-['Didot:Italic',sans-serif] italic text-[15px] text-[#3e3232] opacity-70">
+              {extBookmarks.length === 0 ? 'No saves yet' : `${extBookmarks.length} article${extBookmarks.length === 1 ? '' : 's'}`}
+            </p>
+            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+              <img src={imgForward} alt="" className="w-[32px] h-[32px] object-contain" />
+            </div>
+          </button>
 
           {folders.map(folder => (
             <button

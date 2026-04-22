@@ -75,7 +75,7 @@ export default function FollowingScreen({ user }: { user: User | null }) {
       });
   }, [user]);
 
-  // Load articles + derive author/tag search options
+  // Load articles from articles table
   useEffect(() => {
     supabase
       .from('articles')
@@ -96,14 +96,47 @@ export default function FollowingScreen({ user }: { user: User | null }) {
 
           setSearchOptions(prev => ({
             ...prev,
-            authors,
-            topics: allTags,
-            places: allTags, // same source — tags often include places
+            authors: [...new Set([...prev.authors, ...authors])].sort(),
+            topics: [...new Set([...prev.topics, ...allTags])].sort(),
+            places: [...new Set([...prev.places, ...allTags])].sort(),
           }));
         }
         setLoadingArticles(false);
       });
   }, []);
+
+  // Populate search options from the user's extension-tracked article visits
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('article_visits')
+      .select('author, source, keywords')
+      .eq('user_id', user.id)
+      .order('visited_at', { ascending: false })
+      .limit(200)
+      .then(({ data }) => {
+        if (!data || data.length === 0) return;
+
+        const authors = [...new Set(
+          data.map(r => r.author).filter(Boolean)
+        )].sort() as string[];
+
+        const sources = [...new Set(
+          data.map(r => r.source).filter(Boolean)
+        )].sort() as string[];
+
+        const keywords = [...new Set(
+          data.flatMap(r => (r.keywords as string[]) || []).filter(Boolean)
+        )].sort();
+
+        setSearchOptions(prev => ({
+          authors: [...new Set([...prev.authors, ...authors])].sort(),
+          sources: [...new Set([...prev.sources, ...sources])].sort(),
+          topics:  [...new Set([...prev.topics,  ...keywords])].sort(),
+          places:  [...new Set([...prev.places,  ...keywords])].sort(),
+        }));
+      });
+  }, [user]);
 
   // Join articles with source display names from local data
   const articles: Article[] = useMemo(() =>

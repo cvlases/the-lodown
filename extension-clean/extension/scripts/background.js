@@ -321,6 +321,19 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
       sendResponse({ loggedIn: !!d.authToken, email: d.userEmail || null });
     }); return true;
   }
+  if (msg.type === "TRACK_VISIT") {
+    chrome.storage.local.get(["authToken"]).then(function(d) {
+      if (!d.authToken) { sendResponse({ success: false }); return; }
+      sbAuthPost("article_visits", {
+        url: msg.article.url || null,
+        title: msg.article.title || null,
+        source: msg.article.source || null,
+        author: msg.article.author || null,
+        keywords: msg.article.keywords || []
+      }, d.authToken).then(function(r) { sendResponse({ success: r.ok || r.status === 409 }); })
+        .catch(function() { sendResponse({ success: false }); });
+    }); return true;
+  }
 });
 
 /* ===== AUTO MODE ===== */
@@ -328,6 +341,8 @@ var alertedTabs = {};
 
 chrome.tabs.onUpdated.addListener(function(tabId, ci, tab) {
   if (ci.status !== "complete" || !tab.url || tab.url.indexOf("http") !== 0) return;
+
+  // Resistance badge
   loadResistanceList().then(function(list) {
     var r = isResisted(tab.url, list);
     if (r) {
@@ -347,6 +362,27 @@ chrome.tabs.onUpdated.addListener(function(tabId, ci, tab) {
       chrome.action.setBadgeText({ text: "", tabId: tabId });
     }
   });
+
+  // Auto-track visits to local news sources (if logged in)
+  Promise.all([loadSources(), chrome.storage.local.get(["authToken"])]).then(function(res) {
+    var sources = res[0];
+    var token = res[1].authToken;
+    if (!token) return;
+    var domain = extractDomain(tab.url);
+    var source = findSourceByDomain(domain, sources);
+    if (!source) return;
+    extractFromTab(tabId).then(function(d) {
+      if (!d || !d.title || d.title.length < 5) return;
+      var keywords = extractKeywords(d.text || "", 8);
+      sbAuthPost("article_visits", {
+        url: tab.url,
+        title: d.title || null,
+        source: source.name,
+        author: d.author || null,
+        keywords: keywords
+      }, token).catch(function() {});
+    });
+  }).catch(function() {});
 });
 
 chrome.tabs.onRemoved.addListener(function(tabId) {
